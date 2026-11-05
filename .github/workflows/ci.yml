@@ -1,0 +1,41 @@
+# Integración continua: corre en cada Pull Request hacia main y en cada push a main.
+# Se amplía en la fase 1 con lint, typecheck, tests y build de web/.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Permisos mínimos para el token de GitHub (principio de mínimo privilegio)
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API · validar esquema Prisma
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    env:
+      # URL ficticia: `prisma validate` no se conecta a la BD, pero la config la exige
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Validar esquema
+        run: npx prisma validate
+
+      - name: Verificar formato del esquema
+        run: npx prisma format --check

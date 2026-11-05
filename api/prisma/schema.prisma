@@ -1,0 +1,245 @@
+// Esquema de la fase 1. Explicación de cada decisión: docs/modelo-datos.md
+// Convención: modelos en PascalCase/camelCase en el código y snake_case en la BD (@map/@@map).
+// La conexión se configura en prisma.config.ts (Prisma 7), no aquí.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────
+
+enum RolStaff {
+  DUENO
+  RECEPCION
+
+  @@map("rol_staff")
+}
+
+enum EstadoRegistro {
+  ACTIVO
+  BLOQUEADO
+
+  @@map("estado_registro")
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TARJETA
+  TRANSFERENCIA
+
+  @@map("metodo_pago")
+}
+
+enum EstadoPago {
+  VALIDO
+  ANULADO
+
+  @@map("estado_pago")
+}
+
+enum TipoConsentimiento {
+  AVISO_PRIVACIDAD
+  DATOS_SALUD
+  COMUNICACIONES
+
+  @@map("tipo_consentimiento")
+}
+
+enum MedioConsentimiento {
+  FIRMA_PAPEL
+  FIRMA_DIGITAL
+  CASILLA_DIGITAL
+
+  @@map("medio_consentimiento")
+}
+
+// ─── Tenant ───────────────────────────────────────────────────────────────
+
+model Gimnasio {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre               String
+  telefono             String?
+  direccion            String?
+  emailNotificaciones  String   @map("email_notificaciones")
+  diasAvisoVencimiento Int      @default(7) @map("dias_aviso_vencimiento") // CHECK 0..30 en migración SQL
+  zonaHoraria          String   @default("America/Mexico_City") @map("zona_horaria")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  staff           PerfilStaff[]
+  clientes        Cliente[]
+  planes          Plan[]
+  membresias      Membresia[]
+  pagos           Pago[]
+  consentimientos Consentimiento[]
+  bitacora        BitacoraAuditoria[]
+
+  @@map("gimnasios")
+}
+
+// ─── Staff (1 a 1 con auth.users de Supabase) ─────────────────────────────
+
+model PerfilStaff {
+  id         String   @id @db.Uuid // = auth.users.id; FK a auth.users en migración SQL
+  gimnasioId String   @map("gimnasio_id") @db.Uuid
+  nombre     String
+  rol        RolStaff
+  activo     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gimnasio          Gimnasio    @relation(fields: [gimnasioId], references: [id], onDelete: Restrict)
+  membresiasCreadas Membresia[] @relation("MembresiaCreadaPor")
+  pagosRegistrados  Pago[]      @relation("PagoRegistradoPor")
+  pagosAnulados     Pago[]      @relation("PagoAnuladoPor")
+
+  @@index([gimnasioId])
+  @@map("perfiles_staff")
+}
+
+// ─── Clientes ─────────────────────────────────────────────────────────────
+
+model Cliente {
+  id                           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gimnasioId                   String         @map("gimnasio_id") @db.Uuid
+  nombres                      String
+  apellidos                    String
+  telefono                     String // normalizado a 10 dígitos; CHECK en migración SQL
+  email                        String?
+  fechaNacimiento              DateTime?      @map("fecha_nacimiento") @db.Date
+  fechaInscripcion             DateTime       @default(dbgenerated("CURRENT_DATE")) @map("fecha_inscripcion") @db.Date
+  contactoEmergenciaNombre     String?        @map("contacto_emergencia_nombre")
+  contactoEmergenciaTelefono   String?        @map("contacto_emergencia_telefono")
+  contactoEmergenciaParentesco String?        @map("contacto_emergencia_parentesco")
+  notas                        String? // nunca datos de salud (ver docs/modelo-datos.md)
+  estadoRegistro               EstadoRegistro @default(ACTIVO) @map("estado_registro")
+  bloqueadoEn                  DateTime?      @map("bloqueado_en") @db.Timestamptz(6)
+  suprimirEn                   DateTime?      @map("suprimir_en") @db.Date
+  createdAt                    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gimnasio        Gimnasio         @relation(fields: [gimnasioId], references: [id], onDelete: Restrict)
+  membresias      Membresia[]
+  consentimientos Consentimiento[]
+
+  @@unique([gimnasioId, telefono])
+  @@index([gimnasioId, apellidos, nombres])
+  @@map("clientes")
+}
+
+// ─── Catálogo de planes ───────────────────────────────────────────────────
+
+model Plan {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gimnasioId    String   @map("gimnasio_id") @db.Uuid
+  nombre        String
+  precio        Decimal  @db.Decimal(10, 2) // CHECK > 0 en migración SQL
+  duracionMeses Int      @map("duracion_meses") // CHECK 1..24 en migración SQL
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gimnasio   Gimnasio    @relation(fields: [gimnasioId], references: [id], onDelete: Restrict)
+  membresias Membresia[]
+
+  @@unique([gimnasioId, nombre])
+  @@map("planes")
+}
+
+// ─── Membresías (el derecho de uso) ───────────────────────────────────────
+
+model Membresia {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gimnasioId     String    @map("gimnasio_id") @db.Uuid
+  clienteId      String    @map("cliente_id") @db.Uuid
+  planId         String    @map("plan_id") @db.Uuid
+  fechaInicio    DateTime  @map("fecha_inicio") @db.Date
+  fechaFin       DateTime  @map("fecha_fin") @db.Date // CHECK fecha_fin >= fecha_inicio en migración SQL
+  precioAcordado Decimal   @map("precio_acordado") @db.Decimal(10, 2)
+  canceladaEn    DateTime? @map("cancelada_en") @db.Timestamptz(6)
+  creadaPorId    String    @map("creada_por") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gimnasio  Gimnasio    @relation(fields: [gimnasioId], references: [id], onDelete: Restrict)
+  cliente   Cliente     @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  plan      Plan        @relation(fields: [planId], references: [id], onDelete: Restrict)
+  creadaPor PerfilStaff @relation("MembresiaCreadaPor", fields: [creadaPorId], references: [id], onDelete: Restrict)
+  pagos     Pago[]
+
+  @@index([clienteId, fechaFin(sort: Desc)])
+  @@index([gimnasioId, fechaFin])
+  @@map("membresias")
+}
+
+// ─── Pagos (el dinero) ────────────────────────────────────────────────────
+
+model Pago {
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gimnasioId      String     @map("gimnasio_id") @db.Uuid
+  membresiaId     String     @map("membresia_id") @db.Uuid
+  monto           Decimal    @db.Decimal(10, 2) // CHECK > 0 en migración SQL
+  fechaPago       DateTime   @default(now()) @map("fecha_pago") @db.Timestamptz(6)
+  metodo          MetodoPago
+  folio           String?
+  estado          EstadoPago @default(VALIDO)
+  anuladoEn       DateTime?  @map("anulado_en") @db.Timestamptz(6)
+  anuladoPorId    String?    @map("anulado_por") @db.Uuid
+  motivoAnulacion String?    @map("motivo_anulacion")
+  registradoPorId String     @map("registrado_por") @db.Uuid
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gimnasio      Gimnasio     @relation(fields: [gimnasioId], references: [id], onDelete: Restrict)
+  membresia     Membresia    @relation(fields: [membresiaId], references: [id], onDelete: Restrict)
+  registradoPor PerfilStaff  @relation("PagoRegistradoPor", fields: [registradoPorId], references: [id], onDelete: Restrict)
+  anuladoPor    PerfilStaff? @relation("PagoAnuladoPor", fields: [anuladoPorId], references: [id], onDelete: Restrict)
+
+  @@index([membresiaId])
+  @@index([gimnasioId, fechaPago])
+  @@map("pagos")
+}
+
+// ─── Privacidad (LFPDPPP 2025) ────────────────────────────────────────────
+
+model Consentimiento {
+  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gimnasioId   String              @map("gimnasio_id") @db.Uuid
+  clienteId    String              @map("cliente_id") @db.Uuid
+  tipo         TipoConsentimiento
+  versionAviso String              @map("version_aviso")
+  medio        MedioConsentimiento
+  otorgadoEn   DateTime            @default(now()) @map("otorgado_en") @db.Timestamptz(6)
+  revocadoEn   DateTime?           @map("revocado_en") @db.Timestamptz(6)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  gimnasio Gimnasio @relation(fields: [gimnasioId], references: [id], onDelete: Restrict)
+  cliente  Cliente  @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  @@index([clienteId, tipo])
+  @@map("consentimientos")
+}
+
+// Solo inserción: UPDATE y DELETE se revocan en migración SQL.
+model BitacoraAuditoria {
+  id           BigInt   @id @default(autoincrement())
+  gimnasioId   String   @map("gimnasio_id") @db.Uuid
+  actorId      String?  @map("actor_id") @db.Uuid // null = proceso del sistema
+  accion       String
+  entidad      String
+  entidadId    String?  @map("entidad_id") @db.Uuid
+  datosAntes   Json?    @map("datos_antes")
+  datosDespues Json?    @map("datos_despues")
+  creadoEn     DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  gimnasio Gimnasio @relation(fields: [gimnasioId], references: [id], onDelete: Restrict)
+
+  @@index([gimnasioId, entidad, entidadId])
+  @@index([gimnasioId, creadoEn])
+  @@map("bitacora_auditoria")
+}

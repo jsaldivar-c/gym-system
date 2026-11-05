@@ -25,3 +25,6 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Permisos locales de Claude Code (personales de cada máquina)
+.claude/settings.local.json

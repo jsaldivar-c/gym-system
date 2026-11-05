@@ -1,0 +1,27 @@
+# Dependencias
+node_modules/
+
+# Secretos: NUNCA se suben. Solo .env.example
+.env
+.env.*
+!.env.example
+
+# Builds y artefactos
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Cliente de Prisma generado (se regenera con `prisma generate`)
+api/src/generated/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/

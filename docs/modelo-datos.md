@@ -121,7 +121,7 @@ erDiagram
 | id | uuid | PK = `auth.users.id` | Supabase Auth guarda email y contraseña (hasheada); aquí solo va lo de negocio. **Relación 1 a 1.** |
 | gimnasio_id | uuid | FK, NOT NULL | Cada empleado pertenece a un gimnasio |
 | nombre | text | NOT NULL | |
-| rol | enum `DUENO`, `RECEPCION` | NOT NULL | Autorización |
+| rol | enum `ADMIN`, `DUENO`, `RECEPCION` | NOT NULL | Autorización. Los códigos van en ASCII; la etiqueta "Dueño" se resuelve en la UI. Permisos por rol: ver el [brief](brief.md#3-usuarios) |
 | activo | bool | default true | Dar de baja a un empleado sin perder quién registró cada pago |
 
 ### `clientes`

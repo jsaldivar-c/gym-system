@@ -2,19 +2,34 @@
 
 Sistema de gestión para gimnasios: clientes, membresías, pagos y vencimientos. Empieza con un solo gimnasio y está diseñado para crecer a varios.
 
+## Estado del proyecto
+
+| Fase | Contenido | Estado |
+|---|---|---|
+| 0 | Documentación, ADRs, repositorio, CI | ✅ Completa |
+| 1 | Base de datos (Supabase + Prisma) | ✅ Completa |
+| 1 | API (Express + TypeScript) | 🚧 En curso |
+| 1 | Frontend (React + Vite) | ⏳ Pendiente |
+| 1b–4 | Email diario, inventario, notificaciones, seguimiento | ⏳ Ver [brief](docs/brief.md#4-alcance-por-fases) |
+
 ## Estructura
 
 ```
 gym-system/
-├─ web/      Frontend: React + Vite + TypeScript (fase 1)
-├─ api/      Backend: Node + Express + TypeScript + Prisma
-├─ docs/     Brief, modelo de datos, ADRs, guía de aprendizaje e investigación
-└─ .github/  Plantilla de PR, CI y Dependabot
+├─ web/                Frontend: React + Vite + TypeScript (pendiente)
+├─ api/                Backend: Node + Express + TypeScript + Prisma
+│  ├─ prisma/
+│  │  ├─ schema.prisma     Modelo de datos (fuente de verdad del código)
+│  │  ├─ migrations/       Migraciones versionadas (Prisma + SQL manual)
+│  │  └─ sql/              Scripts de verificación
+│  └─ prisma.config.ts     Configuración del CLI de Prisma 7
+├─ docs/               Brief, modelo de datos, ADRs, guía de aprendizaje e investigación
+└─ .github/            Plantilla de PR, CI y Dependabot
 ```
 
 ## Documentación
 
-- [Brief del proyecto](docs/brief.md): visión, usuarios, fases y reglas de negocio
+- [Brief del proyecto](docs/brief.md): visión, usuarios, roles, fases y reglas de negocio
 - [Modelo de datos](docs/modelo-datos.md): diagrama ER, diccionario y vista de estado
 - [Decisiones de arquitectura (ADRs)](docs/adr/README.md)
 - [Guía de aprendizaje](docs/aprendizaje.md)
@@ -23,22 +38,78 @@ gym-system/
 ## Requisitos
 
 - Node.js 22 o superior
-- Una cuenta de Supabase (fase 1)
+- Un proyecto de [Supabase](https://supabase.com) (plan Free para desarrollo)
+- GitHub CLI (`gh`) para el flujo de PRs (opcional)
 
-## Comandos (api)
+## Puesta en marcha
+
+### 1. Base de datos en Supabase
+
+1. Crea un proyecto **solo para desarrollo** (por ejemplo `gym-system-dev`):
+   - **Data API:** apagada. Solo la API del proyecto accede a los datos.
+   - **Automatic RLS:** encendido.
+   - **GitHub:** sin conectar. Las migraciones las maneja Prisma.
+2. Guarda la contraseña de la BD en tu gestor de contraseñas.
+
+### 2. Variables de entorno
 
 ```bash
 cd api
 npm install
-cp .env.example .env    # y llena los valores
-npm run prisma:validate
+cp .env.example .env
 ```
+
+Llena `api/.env` con los datos de **Supabase → Connect**:
+
+| Variable | Origen | Uso |
+|---|---|---|
+| `DATABASE_URL` | Transaction pooler (puerto 6543) + `?pgbouncer=true` | La app en tiempo de ejecución |
+| `DIRECT_URL` | Session pooler (puerto 5432) | Migraciones de Prisma |
+| `SUPABASE_URL` | URL del proyecto | Verificación de JWT (Auth) |
+
+> `.env` está en `.gitignore`. **Nunca** se sube al repositorio.
+> Si la contraseña tiene caracteres especiales (`@ # / ? : %`), hay que codificarlos en la URL (por ejemplo, `@` → `%40`).
+
+### 3. Migraciones
+
+```bash
+npx prisma migrate dev      # desarrollo: aplica las migraciones pendientes
+npx prisma migrate status   # ver qué migraciones están aplicadas
+npx prisma migrate deploy   # producción/CI: solo aplica, nunca genera
+```
+
+### 4. Verificar las reglas de la BD
+
+Pega [`api/prisma/sql/verificar-reglas.sql`](api/prisma/sql/verificar-reglas.sql) en **Supabase → SQL Editor** y ejecútalo. Debe terminar con el error intencional `REPORTE … 16 OK, 0 fallos`. Ese error revierte todos los datos de prueba.
+
+## Cambios al modelo de datos
+
+1. Edita `api/prisma/schema.prisma`.
+2. `npx prisma migrate dev --name descripcion --create-only` genera el SQL **sin aplicarlo**.
+3. Revisa el `migration.sql` generado.
+4. `npx prisma migrate dev` lo aplica.
+5. Haz commit del esquema **y** la migración juntos, y actualiza `docs/modelo-datos.md`.
+
+Reglas:
+- **Una migración aplicada nunca se edita ni se borra.** Los cambios van en una migración nueva.
+- Lo que Prisma no expresa (`CHECK`, vistas, triggers, permisos) va en una migración vacía (`--create-only`) escrita a mano.
 
 ## Flujo de trabajo
 
-`main` está protegida: todo cambio entra por Pull Request con la CI en verde.
+`main` está protegida: todo cambio entra por Pull Request con la CI en verde y la rama al día.
 
-1. `git switch -c feat/descripcion-corta`
-2. Commits con [Conventional Commits](https://www.conventionalcommits.org/es/): `feat(api): ...`, `docs: ...`
-3. `git push -u origin feat/descripcion-corta` y abrir el PR
-4. Merge cuando la CI pase, y luego borrar la rama
+1. `git switch main && git pull`
+2. `git switch -c tipo/descripcion-corta` (`feat/`, `fix/`, `docs/`, `chore/`)
+3. Commits con [Conventional Commits](https://www.conventionalcommits.org/es/): `feat(api): ...`, `docs: ...`
+4. `git push -u origin tipo/descripcion-corta`
+5. `gh pr create --base main --fill`
+6. Cuando la CI pase: **Squash and merge** y borrar la rama
+7. `git switch main && git pull && git branch -D tipo/descripcion-corta`
+
+### Dependencias (Dependabot)
+
+Dependabot abre PRs semanales. Antes de integrarlos:
+- **PATCH y MINOR:** aceptar si la CI pasa.
+- **MAJOR:** leer el changelog buscando *breaking changes* que afecten nuestro uso.
+- Si el PR está atrasado: `gh pr update-branch <n> --rebase` → `gh pr checks <n> --watch` → `gh pr merge <n> --squash --delete-branch`.
+- Si cambia `package-lock.json`, ejecutar `npm install` después del `git pull`.

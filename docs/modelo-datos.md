@@ -235,6 +235,8 @@ LEFT JOIN ultima u ON u.cliente_id = c.id
 WHERE c.estado_registro = 'ACTIVO';
 ```
 
+> Versión simplificada. La real está en la migración `reglas_vista_y_seguridad`: agrega nombre, teléfono, `membresia_id` y `plan_id` (para que la lista y el email no necesiten otro `JOIN`) y usa `security_invoker = true`.
+
 Puntos para explicar en una entrevista:
 - `DISTINCT ON` es propio de PostgreSQL: se queda con la primera fila de cada grupo según el `ORDER BY`, aquí la membresía más reciente.
 - Una membresía **sin pago válido no cuenta**: si se anula el pago, el cliente pasa a vencido automáticamente.

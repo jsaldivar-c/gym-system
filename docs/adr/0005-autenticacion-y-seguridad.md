@@ -16,7 +16,7 @@ El sistema guarda datos personales (LFPDPPP 2025) y dinero. Hay dos roles con pe
 **Autorización (¿qué puedes hacer?)**
 - Un middleware carga el `perfiles_staff` del usuario y obtiene su `rol` y su `gimnasio_id`.
 - **Toda consulta filtra por el `gimnasio_id` del perfil, nunca por uno que venga en la petición.**
-- Las acciones sensibles (anular pagos, cambiar precios) exigen el rol `DUENO`.
+- Las acciones sensibles exigen roles específicos: anular pagos y cambiar precios requieren `ADMIN` o `DUENO`; gestionar staff y configuración requieren `ADMIN`. La matriz completa está en el [brief](../brief.md#3-usuarios).
 
 **Defensa en profundidad**
 - **RLS activado en todas las tablas** y sin políticas para `anon` ni `authenticated`: aunque la `anon key` (que es pública) se use para leer directo, Supabase no devuelve nada. Solo la API, con su conexión privada, accede a los datos.

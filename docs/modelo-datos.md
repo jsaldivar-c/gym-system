@@ -121,7 +121,7 @@ erDiagram
 | id | uuid | PK = `auth.users.id` | Supabase Auth guarda email y contraseña (hasheada); aquí solo va lo de negocio. **Relación 1 a 1.** |
 | gimnasio_id | uuid | FK, NOT NULL | Cada empleado pertenece a un gimnasio |
 | nombre | text | NOT NULL | |
-| rol | enum `DUENO`, `RECEPCION` | NOT NULL | Autorización |
+| rol | enum `ADMIN`, `DUENO`, `RECEPCION` | NOT NULL | Autorización. Los códigos van en ASCII; la etiqueta "Dueño" se resuelve en la UI. Permisos por rol: ver el [brief](brief.md#3-usuarios) |
 | activo | bool | default true | Dar de baja a un empleado sin perder quién registró cada pago |
 
 ### `clientes`
@@ -234,6 +234,8 @@ CROSS JOIN LATERAL (SELECT (now() AT TIME ZONE g.zona_horaria)::date AS fecha) h
 LEFT JOIN ultima u ON u.cliente_id = c.id
 WHERE c.estado_registro = 'ACTIVO';
 ```
+
+> Versión simplificada. La real está en la migración `reglas_vista_y_seguridad`: agrega nombre, teléfono, `membresia_id` y `plan_id` (para que la lista y el email no necesiten otro `JOIN`) y usa `security_invoker = true`.
 
 Puntos para explicar en una entrevista:
 - `DISTINCT ON` es propio de PostgreSQL: se queda con la primera fila de cada grupo según el `ORDER BY`, aquí la membresía más reciente.

@@ -19,10 +19,20 @@ Fuente: [informe de benchmark](reports/Software%20de%20gestión%20de%20gimnasios
 
 ## 3. Usuarios
 
-| Rol | Quién | Puede |
-|---|---|---|
-| **Dueño** (`DUENO`) | Dueño o encargado | Todo: precios y planes, staff, anular pagos, ver ingresos, exportar datos |
-| **Recepción** (`RECEPCION`) | Recepcionistas | Dar de alta clientes, registrar pagos, renovar y consultar estados. **No** anula pagos ni cambia precios |
+| Acción | `ADMIN` | `DUENO` | `RECEPCION` |
+|---|:-:|:-:|:-:|
+| Altas de clientes, cobros, renovaciones, consultar estados | ✅ | ✅ | ✅ |
+| Anular pagos y ver ingresos | ✅ | ✅ | ❌ |
+| Cambiar precios y planes | ✅ | ✅ | ❌ |
+| Gestionar staff (crear, desactivar, asignar roles) | ✅ | ❌ | ❌ |
+| Configuración del gimnasio y exportación de datos | ✅ | ❌ | ❌ |
+
+- **Admin:** responsable técnico y de configuración del gimnasio. Tiene todos los permisos.
+- **Dueño:** decisiones de negocio (precios, ingresos, anulaciones).
+- **Recepción:** operación diaria.
+- **Instructor** (fase 4): se agregará para entrevistas y mediciones. Agregar un valor al enum es una migración sencilla (`ALTER TYPE ... ADD VALUE`).
+
+> `ADMIN` es un rol **dentro de un gimnasio**. Un "super admin" de la plataforma, que administre varios gimnasios, sería otro concepto y se diseñará cuando haya más de un gimnasio.
 
 Los clientes del gimnasio **no** entran al sistema en las primeras fases.
 

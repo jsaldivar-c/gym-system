@@ -14,6 +14,7 @@ datasource db {
 // ─── Enums ────────────────────────────────────────────────────────────────
 
 enum RolStaff {
+  ADMIN
   DUENO
   RECEPCION
 

@@ -14,7 +14,9 @@ permissions:
 
 jobs:
   api:
-    name: API · esquema, tipos, tests y build
+    # OJO: este nombre es el check requerido por la regla protect-main-branch.
+    # Si lo cambias, actualiza también la regla en GitHub o los PRs se quedan esperando.
+    name: API · validar esquema Prisma
     runs-on: ubuntu-latest
     defaults:
       run:

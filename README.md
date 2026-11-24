@@ -22,6 +22,15 @@ gym-system/
 │  │  ├─ schema.prisma     Modelo de datos (fuente de verdad del código)
 │  │  ├─ migrations/       Migraciones versionadas (Prisma + SQL manual)
 │  │  └─ sql/              Scripts de verificación
+│  ├─ src/
+│  │  ├─ routes/           URL + método → controlador
+│  │  ├─ controllers/      HTTP: lee la petición y responde
+│  │  ├─ services/         Reglas de negocio (sin Express ni Prisma)
+│  │  ├─ repositories/     Consultas con Prisma
+│  │  ├─ middlewares/      404, errores (luego: auth)
+│  │  ├─ app.ts            Arma Express con sus dependencias (lo usan los tests)
+│  │  └─ server.ts         Punto de entrada: env, Prisma y puerto
+│  ├─ tests/               Tests con Vitest + Supertest
 │  └─ prisma.config.ts     Configuración del CLI de Prisma 7
 ├─ docs/               Brief, modelo de datos, ADRs, guía de aprendizaje e investigación
 └─ .github/            Plantilla de PR, CI y Dependabot
@@ -66,6 +75,8 @@ Llena `api/.env` con los datos de **Supabase → Connect**:
 | `DATABASE_URL` | Transaction pooler (puerto 6543) + `?pgbouncer=true` | La app en tiempo de ejecución |
 | `DIRECT_URL` | Session pooler (puerto 5432) | Migraciones de Prisma |
 | `SUPABASE_URL` | URL del proyecto | Verificación de JWT (Auth) |
+| `WEB_ORIGIN` | URL del frontend (`http://localhost:5173` en desarrollo) | CORS |
+| `PORT` | Opcional (por defecto `3000`) | Puerto de la API |
 
 > `.env` está en `.gitignore`. **Nunca** se sube al repositorio.
 > Si la contraseña tiene caracteres especiales (`@ # / ? : %`), hay que codificarlos en la URL (por ejemplo, `@` → `%40`).
@@ -81,6 +92,23 @@ npx prisma migrate deploy   # producción/CI: solo aplica, nunca genera
 ### 4. Verificar las reglas de la BD
 
 Pega [`api/prisma/sql/verificar-reglas.sql`](api/prisma/sql/verificar-reglas.sql) en **Supabase → SQL Editor** y ejecútalo. Debe terminar con el error intencional `REPORTE … 16 OK, 0 fallos`. Ese error revierte todos los datos de prueba.
+
+### 5. Arrancar la API
+
+```bash
+cd api
+npm run dev        # desarrollo: recarga al guardar
+npm test           # tests (no necesitan BD)
+npm run typecheck  # revisar tipos
+npm run build      # compilar a dist/
+npm start          # correr lo compilado
+```
+
+Comprueba que funciona ([spec 0001](docs/specs/0001-api-health.md)):
+- `GET http://localhost:3000/health` → `200` si el proceso está vivo.
+- `GET http://localhost:3000/health/ready` → `200` si además la BD responde; `503` si no (el motivo sale en la consola del servidor).
+
+> Si `/health/ready` da `503` con *"tenant/user … not found"* en la consola, el proyecto de Supabase está pausado (el plan Free los pausa tras días sin uso): reactívalo desde el panel de Supabase.
 
 ## Cambios al modelo de datos
 

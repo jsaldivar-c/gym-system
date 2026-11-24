@@ -1,0 +1,11 @@
+// Compilación para producción: solo src/ → dist/ (los tests no se publican).
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    "sourceMap": true
+  },
+  "include": ["src"]
+}

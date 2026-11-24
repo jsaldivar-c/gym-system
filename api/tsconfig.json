@@ -1,0 +1,27 @@
+// Config base: la usan el editor y `npm run typecheck` (revisa código Y tests).
+// La compilación a dist/ usa tsconfig.build.json, que solo incluye src/.
+{
+  "compilerOptions": {
+    // ─── Salida ───
+    "target": "ES2023",
+    "noEmit": true,
+
+    // ─── Módulos (ESM nativo de Node) ───
+    "module": "nodenext",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "types": ["node"],
+
+    // ─── Rigor del tipado ───
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    // ─── Rendimiento ───
+    "skipLibCheck": true
+  },
+  "include": ["src", "tests"]
+}

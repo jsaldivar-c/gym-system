@@ -1,5 +1,5 @@
 # Integración continua: corre en cada Pull Request hacia main y en cada push a main.
-# Se amplía en la fase 1 con lint, typecheck, tests y build de web/.
+# Se amplía en la fase 1 con lint y con el job de web/.
 name: CI
 
 on:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   api:
-    name: API · validar esquema Prisma
+    name: API · esquema, tipos, tests y build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -39,3 +39,14 @@ jobs:
 
       - name: Verificar formato del esquema
         run: npx prisma format --check
+
+      # typecheck y build ejecutan `prisma generate` (el cliente generado no está en Git)
+      - name: Revisar tipos
+        run: npm run typecheck
+
+      # Los tests usan un repositorio falso: no necesitan una BD real
+      - name: Tests
+        run: npm test
+
+      - name: Compilar
+        run: npm run build

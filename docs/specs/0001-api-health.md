@@ -1,6 +1,6 @@
 # 0001. Health check de la API
 
-- **Estado:** Aprobada
+- **Estado:** Implementada
 - **Fecha:** 2026-11-18
 - **Relacionado:** [ADR 0004](../adr/0004-api-express-typescript.md), [ADR 0005](../adr/0005-autenticacion-y-seguridad.md)
 

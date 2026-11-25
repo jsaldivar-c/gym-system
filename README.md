@@ -27,7 +27,9 @@ gym-system/
 │  │  ├─ controllers/      HTTP: lee la petición y responde
 │  │  ├─ services/         Reglas de negocio (sin Express ni Prisma)
 │  │  ├─ repositories/     Consultas con Prisma
-│  │  ├─ middlewares/      404, errores (luego: auth)
+│  │  ├─ middlewares/      requireAuth, requireRole, 404 y errores
+│  │  ├─ auth/             Verificación del JWT de Supabase, roles y AuthError
+│  │  ├─ types/            Tipos que extienden los de Express (req.auth)
 │  │  ├─ app.ts            Arma Express con sus dependencias (lo usan los tests)
 │  │  └─ server.ts         Punto de entrada: env, Prisma y puerto
 │  ├─ tests/               Tests con Vitest + Supertest
@@ -107,6 +109,7 @@ npm start          # correr lo compilado
 Comprueba que funciona ([spec 0001](docs/specs/0001-api-health.md)):
 - `GET http://localhost:3000/health` → `200` si el proceso está vivo.
 - `GET http://localhost:3000/health/ready` → `200` si además la BD responde; `503` si no (el motivo sale en la consola del servidor).
+- `GET http://localhost:3000/me` → `401` sin token. Con el token de un usuario de staff, devuelve su perfil ([spec 0002](docs/specs/0002-api-autenticacion.md)).
 
 > Si `/health/ready` da `503` con *"tenant/user … not found"* en la consola, el proyecto de Supabase está pausado (el plan Free los pausa tras días sin uso): reactívalo desde el panel de Supabase.
 

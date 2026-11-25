@@ -20,3 +20,4 @@ Una **spec** describe **qué** debe hacer una función antes de programarla: el 
 | # | Spec | Estado |
 |---|---|---|
 | 0001 | [Health check de la API](0001-api-health.md) | Implementada |
+| 0002 | [Autenticación y perfil del staff](0002-api-autenticacion.md) | Implementada |

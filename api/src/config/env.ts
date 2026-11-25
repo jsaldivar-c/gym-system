@@ -11,6 +11,7 @@ function requerida(nombre: string): string {
 
 export interface Env {
   databaseUrl: string;
+  supabaseUrl: string;
   webOrigin: string;
   port: number;
 }
@@ -23,6 +24,7 @@ export function loadEnv(): Env {
 
   return {
     databaseUrl: requerida("DATABASE_URL"),
+    supabaseUrl: requerida("SUPABASE_URL"),
     webOrigin: requerida("WEB_ORIGIN"),
     port,
   };

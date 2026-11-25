@@ -7,15 +7,22 @@ import { rateLimit } from "express-rate-limit";
 import helmet from "helmet";
 import { errorHandler } from "./middlewares/error-handler.js";
 import { notFound } from "./middlewares/not-found.js";
+import { createRequireAuth } from "./middlewares/require-auth.js";
 import { createHealthRouter } from "./routes/health.routes.js";
+import { createMeRouter } from "./routes/me.routes.js";
+import type { AuthService } from "./services/auth.service.js";
 import type { HealthService } from "./services/health.service.js";
 
 export interface AppDeps {
   healthService: HealthService;
+  authService: AuthService;
   webOrigin: string;
+  logger?: Pick<Console, "warn" | "error">;
 }
 
-export function createApp({ healthService, webOrigin }: AppDeps): Express {
+export function createApp({ healthService, authService, webOrigin, logger = console }: AppDeps): Express {
+  const requireAuth = createRequireAuth(authService, logger);
+
   const app = express();
 
   // ─── Middlewares globales (aplican a TODA la API, health incluido) ───
@@ -32,8 +39,11 @@ export function createApp({ healthService, webOrigin }: AppDeps): Express {
   );
   app.use(express.json({ limit: "100kb" }));
 
-  // ─── Rutas ───
+  // ─── Rutas públicas ───
   app.use("/health", createHealthRouter(healthService));
+
+  // ─── Rutas protegidas (cada router pone requireAuth en sus rutas) ───
+  app.use("/me", createMeRouter(requireAuth));
 
   // ─── Al final: 404 y errores ───
   app.use(notFound);

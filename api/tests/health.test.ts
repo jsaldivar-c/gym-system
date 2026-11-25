@@ -1,12 +1,10 @@
 // Tests de la spec 0001 (docs/specs/0001-api-health.md). Cada `it` es un caso de la tabla.
 // No usan una BD real: inyectan un repositorio falso que responde, falla o tarda.
 import request from "supertest";
-import { describe, expect, it, vi } from "vitest";
-import { createApp } from "../src/app.js";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { HealthRepository } from "../src/repositories/health.repository.js";
-import { createHealthService } from "../src/services/health.service.js";
+import { bdOk, crearAppDePrueba, crearClaves } from "./helpers.js";
 
-const bdOk: HealthRepository = { ping: async () => {} };
 const bdCaida: HealthRepository = {
   ping: async () => {
     throw new Error('password authentication failed for user "postgres" at db.secreto.supabase.co');
@@ -14,13 +12,13 @@ const bdCaida: HealthRepository = {
 };
 const bdLenta: HealthRepository = { ping: () => new Promise(() => {}) }; // nunca responde
 
-function appCon(repo: HealthRepository, timeoutMs = 2000) {
-  const logger = { error: vi.fn() };
-  const app = createApp({
-    healthService: createHealthService(repo, { timeoutMs, logger }),
-    webOrigin: "http://localhost:5173",
-  });
-  return { app, logger };
+let claves: Awaited<ReturnType<typeof crearClaves>>;
+beforeAll(async () => {
+  claves = await crearClaves();
+});
+
+function appCon(healthRepository: HealthRepository, timeoutMs = 2000) {
+  return crearAppDePrueba({ keys: claves.jwks, healthRepository, timeoutMs });
 }
 
 describe("GET /health (liveness)", () => {

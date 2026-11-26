@@ -5,8 +5,10 @@ import { loadEnv } from "./config/env.js";
 import { createPrismaClient } from "./lib/prisma.js";
 import { createHealthRepository } from "./repositories/health.repository.js";
 import { createPerfilStaffRepository } from "./repositories/perfil-staff.repository.js";
+import { createPlanRepository } from "./repositories/plan.repository.js";
 import { createAuthService } from "./services/auth.service.js";
 import { createHealthService } from "./services/health.service.js";
+import { createPlanService } from "./services/plan.service.js";
 
 const env = loadEnv();
 const prisma = createPrismaClient(env.databaseUrl);
@@ -18,6 +20,7 @@ const app = createApp({
     verifyToken: createTokenVerifier({ keys: remoteKeys(jwksUrl), issuer }),
     perfilRepository: createPerfilStaffRepository(prisma),
   }),
+  planService: createPlanService(createPlanRepository(prisma)),
   webOrigin: env.webOrigin,
 });
 

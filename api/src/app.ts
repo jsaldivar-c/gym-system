@@ -10,17 +10,20 @@ import { notFound } from "./middlewares/not-found.js";
 import { createRequireAuth } from "./middlewares/require-auth.js";
 import { createHealthRouter } from "./routes/health.routes.js";
 import { createMeRouter } from "./routes/me.routes.js";
+import { createPlanRouter } from "./routes/plan.routes.js";
 import type { AuthService } from "./services/auth.service.js";
 import type { HealthService } from "./services/health.service.js";
+import type { PlanService } from "./services/plan.service.js";
 
 export interface AppDeps {
   healthService: HealthService;
   authService: AuthService;
+  planService: PlanService;
   webOrigin: string;
   logger?: Pick<Console, "warn" | "error">;
 }
 
-export function createApp({ healthService, authService, webOrigin, logger = console }: AppDeps): Express {
+export function createApp({ healthService, authService, planService, webOrigin, logger = console }: AppDeps): Express {
   const requireAuth = createRequireAuth(authService, logger);
 
   const app = express();
@@ -44,6 +47,7 @@ export function createApp({ healthService, authService, webOrigin, logger = cons
 
   // ─── Rutas protegidas (cada router pone requireAuth en sus rutas) ───
   app.use("/me", createMeRouter(requireAuth));
+  app.use("/planes", createPlanRouter(planService, requireAuth));
 
   // ─── Al final: 404 y errores ───
   app.use(notFound);

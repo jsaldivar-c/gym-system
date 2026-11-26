@@ -147,7 +147,7 @@ erDiagram
 |---|---|---|
 | id | uuid | PK |
 | gimnasio_id | uuid | FK, NOT NULL |
-| nombre | text | NOT NULL, UNIQUE(gimnasio_id, nombre) |
+| nombre | text | NOT NULL, índice único sobre `(gimnasio_id, lower(nombre))`: "Mensual" y "mensual" chocan. Va en una migración SQL porque Prisma no expresa índices sobre expresiones ([spec 0003](specs/0003-api-planes.md)) |
 | precio | numeric(10,2) | NOT NULL, CHECK > 0 |
 | duracion_meses | int | NOT NULL, CHECK 1–24 |
 | activo | bool | default true. Un plan retirado no se borra porque hay membresías que lo usan. |

@@ -26,13 +26,15 @@ gym-system/
 │  │  ├─ routes/           URL + método → controlador
 │  │  ├─ controllers/      HTTP: lee la petición y responde
 │  │  ├─ services/         Reglas de negocio (sin Express ni Prisma)
-│  │  ├─ repositories/     Consultas con Prisma
+│  │  ├─ repositories/     Consultas con Prisma (siempre filtran por gimnasio)
+│  │  ├─ schemas/          Validación de entrada con Zod
 │  │  ├─ middlewares/      requireAuth, requireRole, 404 y errores
+│  │  ├─ errors.ts         Errores de dominio → 400, 404 y 409
 │  │  ├─ auth/             Verificación del JWT de Supabase, roles y AuthError
 │  │  ├─ types/            Tipos que extienden los de Express (req.auth)
 │  │  ├─ app.ts            Arma Express con sus dependencias (lo usan los tests)
 │  │  └─ server.ts         Punto de entrada: env, Prisma y puerto
-│  ├─ tests/               Tests con Vitest + Supertest
+│  ├─ tests/               Tests con Vitest + Supertest (fakes/ = repositorios en memoria)
 │  └─ prisma.config.ts     Configuración del CLI de Prisma 7
 ├─ docs/               Brief, modelo de datos, ADRs, guía de aprendizaje e investigación
 └─ .github/            Plantilla de PR, CI y Dependabot

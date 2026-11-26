@@ -3,10 +3,12 @@ import { createApp } from "./app.js";
 import { createTokenVerifier, remoteKeys, supabaseAuthUrls } from "./auth/token-verifier.js";
 import { loadEnv } from "./config/env.js";
 import { createPrismaClient } from "./lib/prisma.js";
+import { createClienteRepository } from "./repositories/cliente.repository.js";
 import { createHealthRepository } from "./repositories/health.repository.js";
 import { createPerfilStaffRepository } from "./repositories/perfil-staff.repository.js";
 import { createPlanRepository } from "./repositories/plan.repository.js";
 import { createAuthService } from "./services/auth.service.js";
+import { createClienteService } from "./services/cliente.service.js";
 import { createHealthService } from "./services/health.service.js";
 import { createPlanService } from "./services/plan.service.js";
 
@@ -21,6 +23,7 @@ const app = createApp({
     perfilRepository: createPerfilStaffRepository(prisma),
   }),
   planService: createPlanService(createPlanRepository(prisma)),
+  clienteService: createClienteService(createClienteRepository(prisma)),
   webOrigin: env.webOrigin,
 });
 

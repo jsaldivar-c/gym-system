@@ -143,7 +143,7 @@ describe("actualizar", () => {
   });
 
   it("caso 16, servicio + repo real: la bitácora solo guarda los campos que de verdad cambiaron", async () => {
-    const auth: AuthContext = { userId: actorId, gimnasioId: mio.id, rol: "DUENO", nombre: "Ana López", gimnasioNombre: mio.nombre };
+    const auth: AuthContext = { userId: actorId, gimnasioId: mio.id, rol: "DUENO", nombre: "Ana López", gimnasioNombre: mio.nombre, zonaHoraria: "America/Mexico_City" };
     const servicio = createPlanService(repo);
 
     // El nombre y la duración llegan iguales a los actuales; solo el precio cambia.
@@ -156,7 +156,7 @@ describe("actualizar", () => {
   });
 
   it("caso 19, servicio + repo real: con los mismos valores no se escribe nada en la bitácora", async () => {
-    const auth: AuthContext = { userId: actorId, gimnasioId: mio.id, rol: "DUENO", nombre: "Ana López", gimnasioNombre: mio.nombre };
+    const auth: AuthContext = { userId: actorId, gimnasioId: mio.id, rol: "DUENO", nombre: "Ana López", gimnasioNombre: mio.nombre, zonaHoraria: "America/Mexico_City" };
 
     await createPlanService(repo).actualizar(auth, mensual.id, { precio: "500.00", activo: true });
 

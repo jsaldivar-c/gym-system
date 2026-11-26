@@ -10,7 +10,8 @@ export function validar<S extends z.ZodType>(schema: S, datos: unknown): z.infer
     resultado.error.issues.flatMap((issue) => {
       // Campos que no están en el contrato (strictObject): un detalle por cada uno
       if (issue.code === "unrecognized_keys") {
-        return issue.keys.map((key) => ({ campo: key, mensaje: "Campo no permitido" }));
+        // Con la ruta del objeto donde apareció: "contactoEmergencia.edad"
+        return issue.keys.map((key) => ({ campo: [...issue.path, key].join("."), mensaje: "Campo no permitido" }));
       }
       // path vacío = el problema es el body completo
       if (issue.path.length === 0) {

@@ -31,6 +31,7 @@ export function createAuthService({
         rol: perfil.rol,
         nombre: perfil.nombre,
         gimnasioNombre: perfil.gimnasio.nombre,
+        zonaHoraria: perfil.gimnasio.zonaHoraria,
       };
     },
   };

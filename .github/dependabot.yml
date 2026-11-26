@@ -6,6 +6,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # @types/node debe coincidir con la versión de Node que usamos en CI y producción (22).
+      # Una versión mayor de los tipos dejaría usar APIs que Node 22 no tiene.
+      # Al subir de Node, cambiar a mano @types/node y el node-version del workflow a la vez.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

@@ -1,0 +1,23 @@
+# Postgres desechable para los tests de integración (npm run test:integration).
+# Es la misma versión mayor que usa Supabase (17). Los datos viven en memoria (tmpfs):
+# al apagar el contenedor desaparecen, que es justo lo que queremos de una BD de pruebas.
+#   Encender: npm run db:test:up
+#   Apagar:   npm run db:test:down
+services:
+  postgres-test:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gym_test
+    # Puerto 54329 (y no 5432) para no chocar con un Postgres que ya tengas instalado
+    ports:
+      - "54329:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    # `up --wait` espera a que este chequeo pase antes de devolver el control
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d gym_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 15

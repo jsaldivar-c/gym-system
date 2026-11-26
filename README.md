@@ -35,6 +35,7 @@ gym-system/
 │  │  ├─ app.ts            Arma Express con sus dependencias (lo usan los tests)
 │  │  └─ server.ts         Punto de entrada: env, Prisma y puerto
 │  ├─ tests/               Tests con Vitest + Supertest (fakes/ = repositorios en memoria)
+│  │  └─ integration/      Tests de los repositorios reales contra un Postgres de prueba
 │  └─ prisma.config.ts     Configuración del CLI de Prisma 7
 ├─ docs/               Brief, modelo de datos, ADRs, guía de aprendizaje e investigación
 └─ .github/            Plantilla de PR, CI y Dependabot
@@ -53,6 +54,7 @@ gym-system/
 - Node.js 22 o superior
 - Un proyecto de [Supabase](https://supabase.com) (plan Free para desarrollo)
 - GitHub CLI (`gh`) para el flujo de PRs (opcional)
+- Docker Desktop, solo para los tests de integración
 
 ## Puesta en marcha
 
@@ -102,7 +104,7 @@ Pega [`api/prisma/sql/verificar-reglas.sql`](api/prisma/sql/verificar-reglas.sql
 ```bash
 cd api
 npm run dev        # desarrollo: recarga al guardar
-npm test           # tests (no necesitan BD)
+npm test           # tests unitarios (no necesitan BD)
 npm run typecheck  # revisar tipos
 npm run build      # compilar a dist/
 npm start          # correr lo compilado
@@ -114,6 +116,21 @@ Comprueba que funciona ([spec 0001](docs/specs/0001-api-health.md)):
 - `GET http://localhost:3000/me` → `401` sin token. Con el token de un usuario de staff, devuelve su perfil ([spec 0002](docs/specs/0002-api-autenticacion.md)).
 
 > Si `/health/ready` da `503` con *"tenant/user … not found"* en la consola, el proyecto de Supabase está pausado (el plan Free los pausa tras días sin uso): reactívalo desde el panel de Supabase.
+
+### 6. Tests de integración (opcional en local, obligatorios en la CI)
+
+`npm test` usa repositorios falsos en memoria. Los tests de `api/tests/integration/` prueban los repositorios **reales** de Prisma (filtro por gimnasio, índices únicos, bitácora y transacciones) contra un Postgres 17 desechable en Docker. Nunca tocan Supabase.
+
+```bash
+cd api
+npm run db:test:up         # enciende el Postgres de prueba (puerto 54329), con Docker Desktop abierto
+npm run test:integration   # genera el cliente, vacía la BD, aplica las migraciones y corre los tests
+npm run db:test:down       # apaga el contenedor (los datos se pierden, a propósito)
+```
+
+- Cada corrida empieza desde una BD vacía y aplica las migraciones con `prisma migrate deploy`, así que también comprueba que las migraciones funcionan en un Postgres limpio.
+- La BD sale de `TEST_DATABASE_URL` (por defecto, el contenedor de `api/docker-compose.test.yml`). Por seguridad, el setup se niega a correr si apunta a algo que no sea `localhost`.
+- En la CI, el mismo Postgres lo levanta un *service container* del job `API · validar esquema Prisma`.
 
 ## Cambios al modelo de datos
 

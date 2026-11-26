@@ -151,7 +151,8 @@ model Plan {
   gimnasio   Gimnasio    @relation(fields: [gimnasioId], references: [id], onDelete: Restrict)
   membresias Membresia[]
 
-  @@unique([gimnasioId, nombre])
+  // Nombre único por gimnasio SIN distinguir mayúsculas: índice único sobre
+  // (gimnasio_id, lower(nombre)) en la migración SQL. Prisma no puede expresarlo aquí.
   @@map("planes")
 }
 

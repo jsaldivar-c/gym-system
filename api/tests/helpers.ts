@@ -6,8 +6,11 @@ import { createApp } from "../src/app.js";
 import { createTokenVerifier } from "../src/auth/token-verifier.js";
 import type { HealthRepository } from "../src/repositories/health.repository.js";
 import type { PerfilStaff, PerfilStaffRepository } from "../src/repositories/perfil-staff.repository.js";
+import type { PlanRepository } from "../src/repositories/plan.repository.js";
 import { createAuthService } from "../src/services/auth.service.js";
 import { createHealthService } from "../src/services/health.service.js";
+import { createPlanService } from "../src/services/plan.service.js";
+import { crearPlanRepositoryFalso } from "./fakes/plan-repository.fake.js";
 
 export const ISSUER = "https://proyecto-de-prueba.supabase.co/auth/v1";
 
@@ -35,7 +38,9 @@ export function firmarToken(
     .sign(privateKey);
 }
 
-const GIMNASIO = { id: "9b2e4c1a-0000-4000-8000-000000000001", nombre: "Gym Centro" };
+export const GIMNASIO = { id: "9b2e4c1a-0000-4000-8000-000000000001", nombre: "Gym Centro" };
+/** Otro gimnasio: sus datos NUNCA deben verse desde GIMNASIO. */
+export const OTRO_GIMNASIO = { id: "9b2e4c1a-0000-4000-8000-000000000002", nombre: "Gym Norte" };
 
 function perfil(id: string, nombre: string, rol: PerfilStaff["rol"], activo = true): PerfilStaff {
   return { id, gimnasioId: GIMNASIO.id, nombre, rol, activo, gimnasio: GIMNASIO };
@@ -59,10 +64,12 @@ export function crearAppDePrueba({
   keys,
   healthRepository = bdOk,
   timeoutMs = 2000,
+  planRepository = crearPlanRepositoryFalso().repo,
 }: {
   keys: JWTVerifyGetKey;
   healthRepository?: HealthRepository;
   timeoutMs?: number;
+  planRepository?: PlanRepository;
 }) {
   const logger = { warn: vi.fn(), error: vi.fn() };
   const authService = createAuthService({
@@ -72,6 +79,7 @@ export function crearAppDePrueba({
   const app = createApp({
     healthService: createHealthService(healthRepository, { timeoutMs, logger }),
     authService,
+    planService: createPlanService(planRepository),
     webOrigin: "http://localhost:5173",
     logger,
   });

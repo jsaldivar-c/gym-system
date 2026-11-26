@@ -168,7 +168,7 @@ Si un `PATCH` no cambia nada (por ejemplo, manda el mismo precio que ya tenía),
 | 24 | Cualquier ruta de `/planes` sin token | `401` |
 | 25 | Si falla la escritura en la bitácora, el plan no se crea ni se cambia | El plan queda como estaba (rollback) |
 
-> **Casos 3, 5, 20 y 25 contra la BD real:** los tests automatizados usan un repositorio falso en memoria. El 25 (la transacción de Prisma) y las consultas reales del aislamiento por gimnasio quedan para los tests de integración (pregunta abierta 2). Mientras tanto, se comprueban en la prueba manual.
+> **Casos 3, 5, 20 y 25 contra la BD real:** `api/tests/planes.test.ts` usa un repositorio falso en memoria, que no ejercita las consultas de Prisma. Por eso [`api/tests/integration/plan.repository.test.ts`](../../api/tests/integration/plan.repository.test.ts) prueba el repositorio real contra un Postgres de prueba (`npm run test:integration`, también en la CI): el aislamiento por gimnasio en `listar`, `buscarPorId`, `existeNombre` y `actualizar` (casos 3, 5 y 20), el índice único sobre `lower(nombre)` aunque se salte el servicio (casos 14, 15 y 22), la bitácora (`CREAR` del caso 7, y `ACTUALIZAR` solo con los campos cambiados del caso 16) y el rollback del caso 25, provocando a propósito un fallo en el `INSERT` de la bitácora.
 
 ## Preguntas abiertas (decidir al aprobar)
 

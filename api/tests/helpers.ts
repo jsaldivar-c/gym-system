@@ -5,14 +5,17 @@ import { vi } from "vitest";
 import { createApp } from "../src/app.js";
 import { createTokenVerifier } from "../src/auth/token-verifier.js";
 import type { ClienteRepository } from "../src/repositories/cliente.repository.js";
+import type { MembresiaRepository } from "../src/repositories/membresia.repository.js";
 import type { HealthRepository } from "../src/repositories/health.repository.js";
 import type { PerfilStaff, PerfilStaffRepository } from "../src/repositories/perfil-staff.repository.js";
 import type { PlanRepository } from "../src/repositories/plan.repository.js";
 import { createAuthService } from "../src/services/auth.service.js";
 import { createClienteService } from "../src/services/cliente.service.js";
 import { createHealthService } from "../src/services/health.service.js";
+import { createMembresiaService } from "../src/services/membresia.service.js";
 import { createPlanService } from "../src/services/plan.service.js";
 import { crearClienteRepositoryFalso } from "./fakes/cliente-repository.fake.js";
+import { crearMembresiaRepositoryFalso } from "./fakes/membresia-repository.fake.js";
 import { crearPlanRepositoryFalso } from "./fakes/plan-repository.fake.js";
 
 export const ISSUER = "https://proyecto-de-prueba.supabase.co/auth/v1";
@@ -69,6 +72,7 @@ export function crearAppDePrueba({
   timeoutMs = 2000,
   planRepository = crearPlanRepositoryFalso().repo,
   clienteRepository = crearClienteRepositoryFalso().repo,
+  membresiaRepository = crearMembresiaRepositoryFalso().repo,
   ahora,
 }: {
   keys: JWTVerifyGetKey;
@@ -76,6 +80,7 @@ export function crearAppDePrueba({
   timeoutMs?: number;
   planRepository?: PlanRepository;
   clienteRepository?: ClienteRepository;
+  membresiaRepository?: MembresiaRepository;
   ahora?: () => Date;
 }) {
   const logger = { warn: vi.fn(), error: vi.fn() };
@@ -88,6 +93,7 @@ export function crearAppDePrueba({
     authService,
     planService: createPlanService(planRepository),
     clienteService: createClienteService(clienteRepository),
+    membresiaService: createMembresiaService({ membresias: membresiaRepository, planes: planRepository, clientes: clienteRepository }),
     webOrigin: "http://localhost:5173",
     logger,
     ahora,

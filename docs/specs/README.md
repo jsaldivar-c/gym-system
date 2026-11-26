@@ -23,3 +23,4 @@ Una **spec** describe **qué** debe hacer una función antes de programarla: el 
 | 0002 | [Autenticación y perfil del staff](0002-api-autenticacion.md) | Implementada |
 | 0003 | [Planes del gimnasio](0003-api-planes.md) | Implementada |
 | 0004 | [Clientes del gimnasio](0004-api-clientes.md) | Implementada |
+| 0005 | [Membresías y cobro](0005-api-membresias.md) | Implementada |

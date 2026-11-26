@@ -1,19 +1,9 @@
 // Contrato de entrada de /clientes (spec 0004). Zod valida Y normaliza:
 // lo que sale de aquí ya trae el teléfono en 10 dígitos, el email en minúsculas, etc.
 import { z } from "zod";
-import { esFechaReal, restarAnios } from "../lib/fechas.js";
+import { restarAnios } from "../lib/fechas.js";
 import { normalizarTelefono } from "../lib/telefono.js";
-
-/** Mensaje de tipo: "Es obligatorio" si no vino o vino null; si vino otra cosa, `otroTipo`. */
-const tipo = (otroTipo: string) => (issue: { input?: unknown }) =>
-  issue.input === undefined || issue.input === null ? "Es obligatorio" : otroTipo;
-
-/** Texto obligatorio: sin espacios al inicio ni al final, y sin espacios repetidos en medio. */
-const texto = (max: number) =>
-  z
-    .string({ error: tipo("Debe ser texto") })
-    .transform((v) => v.trim().replace(/\s+/g, " "))
-    .pipe(z.string().min(1, "Es obligatorio").max(max, `Debe tener como máximo ${max} caracteres`));
+import { fecha, opcional, texto, tipo } from "./comunes.js";
 
 const telefono = z
   .string({ error: tipo("Debe ser texto") })
@@ -32,21 +22,6 @@ const email = z
   .string({ error: tipo("Debe ser texto") })
   .transform((v) => v.trim().toLowerCase())
   .pipe(z.string().max(254, "Debe tener como máximo 254 caracteres").regex(/^[^@\s]+@[^@\s]+\.[^@\s]+$/, "No es un email válido"));
-
-/** Una fecha "YYYY-MM-DD" que existe, más una regla propia (devuelve el mensaje de error, o null). */
-const fecha = (regla: (valor: string) => string | null) =>
-  z.string({ error: tipo("Debe ser una fecha con formato AAAA-MM-DD") }).transform((v, ctx) => {
-    const mensaje = esFechaReal(v) ? regla(v) : "Debe ser una fecha válida con formato AAAA-MM-DD";
-    if (mensaje) {
-      ctx.addIssue({ code: "custom", message: mensaje });
-      return z.NEVER;
-    }
-    return v;
-  });
-
-/** Opcional y se puede vaciar: no viene = undefined; vacío ("" o null) = null. */
-const vacioANull = (v: unknown) => (typeof v === "string" && v.trim() === "" ? null : v);
-const opcional = <T extends z.ZodType>(schema: T) => z.preprocess(vacioANull, schema.nullable()).optional();
 
 /**
  * Las reglas de fechas dependen de "hoy" en la zona del gimnasio, así que los esquemas

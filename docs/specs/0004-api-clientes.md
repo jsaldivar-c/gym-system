@@ -229,7 +229,7 @@ Se aprobaron las cuatro propuestas:
 ## Fuera del alcance
 
 - **Bloquear y suprimir datos** (`estadoRegistro`, `bloqueadoEn`, `suprimirEn`) y **consentimientos**: spec propia, con reglas legales (pregunta 2).
-- **Estado del semáforo** y filtro por estado: llegan con las membresías (pregunta 1).
+- **Estado del semáforo** y filtro por estado: el estado en la ficha llegó con la [spec 0005](0005-api-membresias.md); la lista y el filtro pasan a la spec 0006.
 - **Fusionar clientes duplicados** (alguien registrado dos veces con distinto teléfono).
 - **Foto del cliente** y **datos de salud** (fase 4).
 - **Exportar la lista** (CSV o Excel): según el brief, es una función del `ADMIN` con su propia spec.

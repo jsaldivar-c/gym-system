@@ -4,16 +4,20 @@ import { createTokenVerifier, remoteKeys, supabaseAuthUrls } from "./auth/token-
 import { loadEnv } from "./config/env.js";
 import { createPrismaClient } from "./lib/prisma.js";
 import { createClienteRepository } from "./repositories/cliente.repository.js";
+import { createMembresiaRepository } from "./repositories/membresia.repository.js";
 import { createHealthRepository } from "./repositories/health.repository.js";
 import { createPerfilStaffRepository } from "./repositories/perfil-staff.repository.js";
 import { createPlanRepository } from "./repositories/plan.repository.js";
 import { createAuthService } from "./services/auth.service.js";
 import { createClienteService } from "./services/cliente.service.js";
 import { createHealthService } from "./services/health.service.js";
+import { createMembresiaService } from "./services/membresia.service.js";
 import { createPlanService } from "./services/plan.service.js";
 
 const env = loadEnv();
 const prisma = createPrismaClient(env.databaseUrl);
+const planRepository = createPlanRepository(prisma);
+const clienteRepository = createClienteRepository(prisma);
 const { issuer, jwksUrl } = supabaseAuthUrls(env.supabaseUrl);
 
 const app = createApp({
@@ -22,8 +26,13 @@ const app = createApp({
     verifyToken: createTokenVerifier({ keys: remoteKeys(jwksUrl), issuer }),
     perfilRepository: createPerfilStaffRepository(prisma),
   }),
-  planService: createPlanService(createPlanRepository(prisma)),
-  clienteService: createClienteService(createClienteRepository(prisma)),
+  planService: createPlanService(planRepository),
+  clienteService: createClienteService(clienteRepository),
+  membresiaService: createMembresiaService({
+    membresias: createMembresiaRepository(prisma),
+    planes: planRepository,
+    clientes: clienteRepository,
+  }),
   webOrigin: env.webOrigin,
 });
 

@@ -34,3 +34,28 @@ export function aDate(fecha: string): Date {
 export function deDate(fecha: Date): string {
   return fecha.toISOString().slice(0, 10);
 }
+
+const UN_DIA_MS = 24 * 60 * 60 * 1000;
+
+function partes(fecha: string): [number, number, number] {
+  return [Number(fecha.slice(0, 4)), Number(fecha.slice(5, 7)), Number(fecha.slice(8, 10))];
+}
+
+/** Suma (o resta, con negativos) días a una fecha "YYYY-MM-DD". Date.UTC se encarga de cambiar de mes y de año. */
+export function sumarDias(fecha: string, dias: number): string {
+  const [y, m, d] = partes(fecha);
+  return deDate(new Date(Date.UTC(y, m - 1, d + dias)));
+}
+
+/**
+ * Último día INCLUIDO de un periodo de `meses` que empieza en `inicio` (spec 0005):
+ * el mismo día N meses después, menos uno. Si ese día no existe (31 de abril), se usa
+ * el 1 del mes siguiente. No usamos setMonth porque "se pasa": 31 ene + 1 mes = 3 mar.
+ */
+export function calcularFechaFin(inicio: string, meses: number): string {
+  const [y, m, d] = partes(inicio);
+  const destino = m - 1 + meses; // mes en base 0; Date.UTC acepta 12, 13… y avanza el año
+  const diasDelMes = new Date(Date.UTC(y, destino + 1, 0)).getUTCDate(); // día 0 del mes siguiente = último de este
+  const siguiente = d <= diasDelMes ? Date.UTC(y, destino, d) : Date.UTC(y, destino + 1, 1);
+  return deDate(new Date(siguiente - UN_DIA_MS));
+}

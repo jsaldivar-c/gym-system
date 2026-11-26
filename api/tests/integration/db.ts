@@ -28,7 +28,7 @@ export async function crearStaff(gimnasioId: string, datos: { nombre?: string; r
 }
 
 /** Filas de la bitácora de un registro (por defecto, un plan), en orden de creación. */
-export function bitacoraDe(gimnasioId: string, entidadId: string, entidad: "planes" | "clientes" = "planes") {
+export function bitacoraDe(gimnasioId: string, entidadId: string, entidad: "planes" | "clientes" | "membresias" | "pagos" = "planes") {
   return prisma.bitacoraAuditoria.findMany({
     where: { gimnasioId, entidad, entidadId },
     orderBy: { id: "asc" },

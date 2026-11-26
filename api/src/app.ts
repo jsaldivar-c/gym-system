@@ -5,13 +5,15 @@ import cors from "cors";
 import express, { type Express } from "express";
 import { rateLimit } from "express-rate-limit";
 import helmet from "helmet";
-import { errorHandler } from "./middlewares/error-handler.js";
+import { createErrorHandler } from "./middlewares/error-handler.js";
 import { notFound } from "./middlewares/not-found.js";
 import { createRequireAuth } from "./middlewares/require-auth.js";
+import { createClienteRouter } from "./routes/cliente.routes.js";
 import { createHealthRouter } from "./routes/health.routes.js";
 import { createMeRouter } from "./routes/me.routes.js";
 import { createPlanRouter } from "./routes/plan.routes.js";
 import type { AuthService } from "./services/auth.service.js";
+import type { ClienteService } from "./services/cliente.service.js";
 import type { HealthService } from "./services/health.service.js";
 import type { PlanService } from "./services/plan.service.js";
 
@@ -19,11 +21,22 @@ export interface AppDeps {
   healthService: HealthService;
   authService: AuthService;
   planService: PlanService;
+  clienteService: ClienteService;
   webOrigin: string;
   logger?: Pick<Console, "warn" | "error">;
+  /** Reloj: los tests lo fijan para controlar qué día es "hoy". */
+  ahora?: () => Date;
 }
 
-export function createApp({ healthService, authService, planService, webOrigin, logger = console }: AppDeps): Express {
+export function createApp({
+  healthService,
+  authService,
+  planService,
+  clienteService,
+  webOrigin,
+  logger = console,
+  ahora,
+}: AppDeps): Express {
   const requireAuth = createRequireAuth(authService, logger);
 
   const app = express();
@@ -48,10 +61,11 @@ export function createApp({ healthService, authService, planService, webOrigin, 
   // ─── Rutas protegidas (cada router pone requireAuth en sus rutas) ───
   app.use("/me", createMeRouter(requireAuth));
   app.use("/planes", createPlanRouter(planService, requireAuth));
+  app.use("/clientes", createClienteRouter(clienteService, requireAuth, ahora));
 
   // ─── Al final: 404 y errores ───
   app.use(notFound);
-  app.use(errorHandler);
+  app.use(createErrorHandler(logger));
 
   return app;
 }

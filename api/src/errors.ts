@@ -22,9 +22,15 @@ export class NotFoundError extends Error {
   }
 }
 
-/** 409: choca con algo que ya existe (p. ej. un nombre único). El mensaje se muestra al usuario. */
+/**
+ * 409: choca con algo que ya existe (p. ej. un nombre único). El mensaje se muestra al usuario.
+ * `extra` agrega campos a la respuesta, como el id del registro con el que choca.
+ */
 export class ConflictError extends Error {
-  constructor(mensaje: string) {
+  constructor(
+    mensaje: string,
+    readonly extra: Record<string, string> = {},
+  ) {
     super(mensaje);
     this.name = "ConflictError";
   }

@@ -8,7 +8,7 @@ export interface PerfilStaff {
   nombre: string;
   rol: Rol;
   activo: boolean;
-  gimnasio: { id: string; nombre: string };
+  gimnasio: { id: string; nombre: string; zonaHoraria: string };
 }
 
 export interface PerfilStaffRepository {
@@ -30,7 +30,7 @@ export function createPerfilStaffRepository(prisma: PrismaClient): PerfilStaffRe
           nombre: true,
           rol: true,
           activo: true,
-          gimnasio: { select: { id: true, nombre: true } },
+          gimnasio: { select: { id: true, nombre: true, zonaHoraria: true } },
         },
       });
     },

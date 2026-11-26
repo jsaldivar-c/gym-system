@@ -17,7 +17,7 @@ describe("findById", () => {
       nombre: "Luis Pérez",
       rol: "RECEPCION",
       activo: false,
-      gimnasio: { id: gimnasio.id, nombre: "Gym Centro" },
+      gimnasio: { id: gimnasio.id, nombre: "Gym Centro", zonaHoraria: "America/Mexico_City" },
     });
   });
 

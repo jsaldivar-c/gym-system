@@ -11,4 +11,6 @@ export interface AuthContext {
   rol: Rol;
   nombre: string;
   gimnasioNombre: string;
+  /** Zona IANA del gimnasio (p. ej. "America/Mexico_City"): define qué día es "hoy". */
+  zonaHoraria: string;
 }

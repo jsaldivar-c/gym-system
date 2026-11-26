@@ -4,12 +4,15 @@ import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTVerifyG
 import { vi } from "vitest";
 import { createApp } from "../src/app.js";
 import { createTokenVerifier } from "../src/auth/token-verifier.js";
+import type { ClienteRepository } from "../src/repositories/cliente.repository.js";
 import type { HealthRepository } from "../src/repositories/health.repository.js";
 import type { PerfilStaff, PerfilStaffRepository } from "../src/repositories/perfil-staff.repository.js";
 import type { PlanRepository } from "../src/repositories/plan.repository.js";
 import { createAuthService } from "../src/services/auth.service.js";
+import { createClienteService } from "../src/services/cliente.service.js";
 import { createHealthService } from "../src/services/health.service.js";
 import { createPlanService } from "../src/services/plan.service.js";
+import { crearClienteRepositoryFalso } from "./fakes/cliente-repository.fake.js";
 import { crearPlanRepositoryFalso } from "./fakes/plan-repository.fake.js";
 
 export const ISSUER = "https://proyecto-de-prueba.supabase.co/auth/v1";
@@ -38,9 +41,9 @@ export function firmarToken(
     .sign(privateKey);
 }
 
-export const GIMNASIO = { id: "9b2e4c1a-0000-4000-8000-000000000001", nombre: "Gym Centro" };
+export const GIMNASIO = { id: "9b2e4c1a-0000-4000-8000-000000000001", nombre: "Gym Centro", zonaHoraria: "America/Mexico_City" };
 /** Otro gimnasio: sus datos NUNCA deben verse desde GIMNASIO. */
-export const OTRO_GIMNASIO = { id: "9b2e4c1a-0000-4000-8000-000000000002", nombre: "Gym Norte" };
+export const OTRO_GIMNASIO = { id: "9b2e4c1a-0000-4000-8000-000000000002", nombre: "Gym Norte", zonaHoraria: "America/Mexico_City" };
 
 function perfil(id: string, nombre: string, rol: PerfilStaff["rol"], activo = true): PerfilStaff {
   return { id, gimnasioId: GIMNASIO.id, nombre, rol, activo, gimnasio: GIMNASIO };
@@ -65,11 +68,15 @@ export function crearAppDePrueba({
   healthRepository = bdOk,
   timeoutMs = 2000,
   planRepository = crearPlanRepositoryFalso().repo,
+  clienteRepository = crearClienteRepositoryFalso().repo,
+  ahora,
 }: {
   keys: JWTVerifyGetKey;
   healthRepository?: HealthRepository;
   timeoutMs?: number;
   planRepository?: PlanRepository;
+  clienteRepository?: ClienteRepository;
+  ahora?: () => Date;
 }) {
   const logger = { warn: vi.fn(), error: vi.fn() };
   const authService = createAuthService({
@@ -80,8 +87,10 @@ export function crearAppDePrueba({
     healthService: createHealthService(healthRepository, { timeoutMs, logger }),
     authService,
     planService: createPlanService(planRepository),
+    clienteService: createClienteService(clienteRepository),
     webOrigin: "http://localhost:5173",
     logger,
+    ahora,
   });
   return { app, logger, authService };
 }

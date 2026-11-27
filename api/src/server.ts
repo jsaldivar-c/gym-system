@@ -13,6 +13,8 @@ import { createClienteService } from "./services/cliente.service.js";
 import { createHealthService } from "./services/health.service.js";
 import { createMembresiaService } from "./services/membresia.service.js";
 import { createPlanService } from "./services/plan.service.js";
+import { createReporteRepository } from "./repositories/reporte.repository.js";
+import { createReporteService } from "./services/reporte.service.js";
 
 const env = loadEnv();
 const prisma = createPrismaClient(env.databaseUrl);
@@ -33,6 +35,7 @@ const app = createApp({
     planes: planRepository,
     clientes: clienteRepository,
   }),
+  reporteService: createReporteService(createReporteRepository(prisma)),
   webOrigin: env.webOrigin,
 });
 

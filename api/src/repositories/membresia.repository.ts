@@ -14,7 +14,12 @@ export interface Pago {
   estado: "VALIDO" | "ANULADO";
   fechaPago: string;
   registradoPor: { id: string; nombre: string };
+  /** Quién, cuándo y por qué se anuló (spec 0007). null si el pago es válido. */
+  anulacion: { anuladoEn: string; anuladoPor: { id: string; nombre: string }; motivo: string } | null;
 }
+
+/** Lo que puede pasar al anular (spec 0007). El servicio lo traduce a 200, 404 o 409. */
+export type ResultadoAnulacion = { tipo: "anulado"; membresia: Membresia } | { tipo: "no-existe" } | { tipo: "ya-anulado" };
 
 export interface Membresia {
   id: string;
@@ -63,6 +68,11 @@ export interface MembresiaRepository {
   historial(gimnasioId: string, clienteId: string): Promise<Membresia[]>;
   /** El estado según la vista, o null si el cliente no existe o no está activo en ESE gimnasio. */
   estado(gimnasioId: string, clienteId: string): Promise<EstadoCliente | null>;
+  /**
+   * Marca el pago como ANULADO y escribe la bitácora, en UNA transacción (spec 0007).
+   * "no-existe" si el pago no es de ESE gimnasio o su cliente no está activo.
+   */
+  anularPago(gimnasioId: string, pagoId: string, actorId: string, motivo: string): Promise<ResultadoAnulacion>;
 }
 
 /** Las membresías que cuentan: la misma condición que la vista v_estado_clientes. */
@@ -84,6 +94,9 @@ const SELECT = {
       estado: true,
       fechaPago: true,
       registradoPor: { select: { id: true, nombre: true } },
+      anuladoEn: true,
+      anuladoPor: { select: { id: true, nombre: true } },
+      motivoAnulacion: true,
     },
     orderBy: { fechaPago: "asc" },
   },
@@ -99,8 +112,14 @@ function aMembresia({ fechaInicio, fechaFin, precioAcordado, canceladaEn, pagos,
     precioAcordado: precioAcordado.toFixed(2),
     canceladaEn: canceladaEn?.toISOString() ?? null,
     cuenta: canceladaEn === null && pagos.some((p) => p.estado === "VALIDO"),
-    pagos: pagos.map(({ monto, fechaPago, ...pago }) => ({ ...pago, monto: monto.toFixed(2), fechaPago: fechaPago.toISOString() })),
+    pagos: pagos.map(aPago),
   };
+}
+
+function aPago({ monto, fechaPago, anuladoEn, anuladoPor, motivoAnulacion, ...pago }: Fila["pagos"][number]): Pago {
+  // El CHECK pagos_anulacion_coherente_chk garantiza que los tres datos vienen juntos o ninguno.
+  const anulacion = anuladoEn && anuladoPor && motivoAnulacion ? { anuladoEn: anuladoEn.toISOString(), anuladoPor, motivo: motivoAnulacion } : null;
+  return { ...pago, monto: monto.toFixed(2), fechaPago: fechaPago.toISOString(), anulacion };
 }
 
 export function createMembresiaRepository(prisma: PrismaClient): MembresiaRepository {
@@ -162,6 +181,40 @@ export function createMembresiaRepository(prisma: PrismaClient): MembresiaReposi
         });
 
         return aMembresia(await tx.membresia.findFirstOrThrow({ where: { id: membresiaId, gimnasioId }, select: SELECT }));
+      });
+    },
+
+    async anularPago(gimnasioId, pagoId, actorId, motivo) {
+      return prisma.$transaction(async (tx) => {
+        // Solo pagos de ESTE gimnasio cuyo cliente está activo (un bloqueado no existe para la API).
+        const pago = await tx.pago.findFirst({
+          where: { id: pagoId, gimnasioId, membresia: { cliente: { estadoRegistro: "ACTIVO" } } },
+          select: { membresiaId: true },
+        });
+        if (!pago) return { tipo: "no-existe" };
+
+        // La condición estado = VALIDO va DENTRO del UPDATE: es atómico. Si otra petición lo anuló
+        // primero, Postgres nos hace esperar a su COMMIT, vuelve a evaluar el WHERE y aquí count = 0.
+        const { count } = await tx.pago.updateMany({
+          where: { id: pagoId, gimnasioId, estado: "VALIDO" },
+          data: { estado: "ANULADO", anuladoEn: new Date(), anuladoPorId: actorId, motivoAnulacion: motivo },
+        });
+        if (count === 0) return { tipo: "ya-anulado" };
+
+        await tx.bitacoraAuditoria.create({
+          data: {
+            gimnasioId,
+            actorId,
+            accion: "ANULAR_PAGO",
+            entidad: "pagos",
+            entidadId: pagoId,
+            datosAntes: { estado: "VALIDO" },
+            datosDespues: { estado: "ANULADO", motivo },
+          },
+        });
+
+        const membresia = await tx.membresia.findFirstOrThrow({ where: { id: pago.membresiaId, gimnasioId }, select: SELECT });
+        return { tipo: "anulado", membresia: aMembresia(membresia) };
       });
     },
 

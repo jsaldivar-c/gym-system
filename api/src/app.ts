@@ -12,6 +12,7 @@ import { createClienteRouter } from "./routes/cliente.routes.js";
 import { createHealthRouter } from "./routes/health.routes.js";
 import { createMembresiaRouter } from "./routes/membresia.routes.js";
 import { createMeRouter } from "./routes/me.routes.js";
+import { createPagoRouter } from "./routes/pago.routes.js";
 import { createPlanRouter } from "./routes/plan.routes.js";
 import type { AuthService } from "./services/auth.service.js";
 import type { ClienteService } from "./services/cliente.service.js";
@@ -68,6 +69,7 @@ export function createApp({
   // Antes que /clientes: es más específica y trae su propio requireAuth.
   app.use("/clientes/:clienteId/membresias", createMembresiaRouter(membresiaService, requireAuth, ahora));
   app.use("/clientes", createClienteRouter(clienteService, requireAuth, ahora));
+  app.use("/pagos", createPagoRouter(membresiaService, requireAuth));
 
   // ─── Al final: 404 y errores ───
   app.use(notFound);

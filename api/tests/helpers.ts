@@ -57,10 +57,11 @@ export const USUARIOS = {
   dueno: perfil("6f1c0000-0000-4000-8000-000000000002", "Carlos Ruiz", "DUENO"),
   inactivo: perfil("6f1c0000-0000-4000-8000-000000000003", "Ex Empleado", "RECEPCION", false),
   sinPerfil: { id: "6f1c0000-0000-4000-8000-000000000004" },
+  admin: perfil("6f1c0000-0000-4000-8000-000000000005", "Rosa Méndez", "ADMIN"),
 };
 
 export const perfilesFalsos: PerfilStaffRepository = {
-  findById: async (id) => [USUARIOS.recepcion, USUARIOS.dueno, USUARIOS.inactivo].find((p) => p.id === id) ?? null,
+  findById: async (id) => [USUARIOS.recepcion, USUARIOS.dueno, USUARIOS.inactivo, USUARIOS.admin].find((p) => p.id === id) ?? null,
 };
 
 export const bdOk: HealthRepository = { ping: async () => {} };

@@ -3,7 +3,7 @@ import type { Request, Response } from "express";
 import { hoyEn } from "../lib/fechas.js";
 import { validar } from "../lib/validation.js";
 import { getAuth } from "../middlewares/require-auth.js";
-import { esquemaContratar } from "../schemas/membresia.schema.js";
+import { esquemaAnular, esquemaContratar } from "../schemas/membresia.schema.js";
 import type { MembresiaService } from "../services/membresia.service.js";
 
 type ConCliente = Request<{ clienteId: string }>;
@@ -22,6 +22,11 @@ export function createMembresiaController(service: MembresiaService, ahora: () =
       const datos = validar(esquemaContratar(hoy), req.body);
       // Sin Location: una membresía no tiene dirección propia (spec 0005).
       res.status(201).json(await service.contratar(auth, req.params.clienteId, datos, hoy));
+    },
+
+    async anularPago(req: Request<{ id: string }>, res: Response) {
+      const datos = validar(esquemaAnular, req.body);
+      res.json(await service.anularPago(getAuth(req), req.params.id, datos));
     },
   };
 }

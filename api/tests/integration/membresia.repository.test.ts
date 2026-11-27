@@ -304,4 +304,95 @@ describe("caso 23: si falla la bitácora, no queda ni la membresía ni el pago (
     expect(await prisma.membresia.count({ where: { clienteId: clienteSab } })).toBe(0);
     expect(await prisma.pago.count({ where: { gimnasioId: gimnasioSab.id } })).toBe(0);
   });
+
+  it("spec 0007, caso 15 — anularPago: el pago sigue VALIDO y sin datos de anulación", async () => {
+    const membresiaId = await insertarMembresia(clienteSab, dias(-5), dias(25), { gimnasioId: gimnasioSab.id });
+    const { id: pagoId } = await prisma.pago.findFirstOrThrow({ where: { membresiaId }, select: { id: true } });
+
+    await expect(repo.anularPago(gimnasioSab.id, pagoId, SABOTEADOR, "Cobro duplicado")).rejects.toThrow(/bitácora caída/);
+    expect(await prisma.pago.findUniqueOrThrow({ where: { id: pagoId } })).toMatchObject({
+      estado: "VALIDO",
+      anuladoEn: null,
+      anuladoPorId: null,
+      motivoAnulacion: null,
+    });
+  });
+});
+
+describe("anularPago (spec 0007)", () => {
+  let clienteId: string;
+  let membresiaId: string;
+  let pagoId: string;
+  let dueno: { id: string };
+
+  beforeEach(async () => {
+    clienteId = await crearCliente(mio.id);
+    membresiaId = await insertarMembresia(clienteId, dias(-5), dias(25));
+    pagoId = (await prisma.pago.findFirstOrThrow({ where: { membresiaId }, select: { id: true } })).id;
+    dueno = await crearStaff(mio.id, { nombre: "Carlos Ruiz", rol: "DUENO" });
+  });
+
+  it("casos 1, 12 y 13: guarda estado, quién, cuándo y motivo (el CHECK los acepta), escribe la bitácora y devuelve la membresía", async () => {
+    const antes = new Date();
+    const resultado = await repo.anularPago(mio.id, pagoId, dueno.id, "Cobro duplicado");
+
+    expect(resultado.tipo).toBe("anulado");
+    if (resultado.tipo !== "anulado") return;
+    expect(resultado.membresia).toMatchObject({ id: membresiaId, cuenta: false });
+    expect(resultado.membresia.pagos).toEqual([
+      expect.objectContaining({
+        id: pagoId,
+        estado: "ANULADO",
+        anulacion: { anuladoEn: expect.any(String), anuladoPor: { id: dueno.id, nombre: "Carlos Ruiz" }, motivo: "Cobro duplicado" },
+      }),
+    ]);
+
+    const fila = await prisma.pago.findUniqueOrThrow({ where: { id: pagoId } });
+    expect(fila).toMatchObject({ estado: "ANULADO", anuladoPorId: dueno.id, motivoAnulacion: "Cobro duplicado" });
+    expect(fila.anuladoEn!.getTime()).toBeGreaterThanOrEqual(antes.getTime() - 1000);
+
+    expect(await bitacoraDe(mio.id, pagoId, "pagos")).toEqual([
+      expect.objectContaining({
+        actorId: dueno.id,
+        accion: "ANULAR_PAGO",
+        datosAntes: { estado: "VALIDO" },
+        datosDespues: { estado: "ANULADO", motivo: "Cobro duplicado" },
+      }),
+    ]);
+  });
+
+  it("caso 10: la vista deja de contar esa membresía", async () => {
+    expect(await repo.estado(mio.id, clienteId)).toMatchObject({ estado: "ACTIVO" });
+    await repo.anularPago(mio.id, pagoId, dueno.id, "Cobro duplicado");
+    expect(await repo.estado(mio.id, clienteId)).toMatchObject({ estado: "SIN_MEMBRESIA" });
+  });
+
+  it("caso 9: un pago ya anulado → ya-anulado, sin tocar el motivo original ni escribir otra bitácora", async () => {
+    await repo.anularPago(mio.id, pagoId, dueno.id, "Cobro duplicado");
+    expect(await repo.anularPago(mio.id, pagoId, dueno.id, "Otra vez")).toEqual({ tipo: "ya-anulado" });
+    expect((await prisma.pago.findUniqueOrThrow({ where: { id: pagoId } })).motivoAnulacion).toBe("Cobro duplicado");
+    expect(await bitacoraDe(mio.id, pagoId, "pagos")).toHaveLength(1);
+  });
+
+  it("casos 7, 8 y 16: desde otro gimnasio, de un cliente bloqueado o inexistente → no-existe y sin cambios", async () => {
+    expect(await repo.anularPago(ajeno.id, pagoId, dueno.id, "Intruso")).toEqual({ tipo: "no-existe" });
+    expect(await repo.anularPago(mio.id, randomUUID(), dueno.id, "x")).toEqual({ tipo: "no-existe" });
+
+    const bloqueado = await crearCliente(mio.id, "BLOQUEADO");
+    const deBloqueado = await insertarMembresia(bloqueado, dias(-5), dias(25));
+    const pagoBloqueado = (await prisma.pago.findFirstOrThrow({ where: { membresiaId: deBloqueado }, select: { id: true } })).id;
+    expect(await repo.anularPago(mio.id, pagoBloqueado, dueno.id, "x")).toEqual({ tipo: "no-existe" });
+
+    expect(await prisma.pago.count({ where: { id: { in: [pagoId, pagoBloqueado] }, estado: "ANULADO" } })).toBe(0);
+  });
+
+  it("caso 14: dos anulaciones simultáneas → una gana y la otra recibe ya-anulado; una sola fila en la bitácora", async () => {
+    const resultados = await Promise.all([
+      repo.anularPago(mio.id, pagoId, dueno.id, "Primera"),
+      repo.anularPago(mio.id, pagoId, dueno.id, "Segunda"),
+    ]);
+
+    expect(resultados.map((r) => r.tipo).sort()).toEqual(["anulado", "ya-anulado"]);
+    expect(await bitacoraDe(mio.id, pagoId, "pagos")).toHaveLength(1);
+  });
 });

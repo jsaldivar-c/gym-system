@@ -63,6 +63,10 @@ function pago(estado: Pago["estado"] = "VALIDO"): Pago {
     estado,
     fechaPago: "2026-10-01T15:00:00.000Z",
     registradoPor: { id: USUARIOS.recepcion.id, nombre: USUARIOS.recepcion.nombre },
+    anulacion:
+      estado === "ANULADO"
+        ? { anuladoEn: "2026-10-02T15:00:00.000Z", anuladoPor: { id: USUARIOS.dueno.id, nombre: USUARIOS.dueno.nombre }, motivo: "Cobro duplicado" }
+        : null,
   };
 }
 
@@ -107,7 +111,7 @@ beforeEach(() => {
     clientes: filasClientes,
     membresias: membresiasIniciales(),
     planes: Object.values(PLAN),
-    staff: [USUARIOS.recepcion, USUARIOS.dueno],
+    staff: [USUARIOS.recepcion, USUARIOS.dueno, USUARIOS.admin],
     hoy: HOY,
     ahora: () => AHORA,
   });
@@ -152,6 +156,7 @@ describe("POST /clientes/:clienteId/membresias", () => {
           estado: "VALIDO",
           fechaPago: AHORA.toISOString(),
           registradoPor: { id: USUARIOS.recepcion.id, nombre: USUARIOS.recepcion.nombre },
+          anulacion: null, // spec 0007
         },
       ],
     });
@@ -371,5 +376,127 @@ describe("caso 5: ¿cuándo termina un mes? (calcularFechaFin)", () => {
     ["2026-08-31", 6, "2027-02-28"], // cruza de año y cae en un día que no existe
   ])("%s + %i mes(es) → %s", (inicio, meses, fin) => {
     expect(calcularFechaFin(inicio, meses)).toBe(fin);
+  });
+});
+
+// ─── Spec 0007: anulación de pagos ────────────────────────────────────────────
+describe("POST /pagos/:id/anulacion (spec 0007)", () => {
+  let tokenDueno: string;
+  let tokenAdmin: string;
+  beforeAll(async () => {
+    tokenDueno = await firmarToken(claves, { sub: USUARIOS.dueno.id });
+    tokenAdmin = await firmarToken(claves, { sub: USUARIOS.admin.id });
+  });
+
+  const anular = (pagoId: string, body: unknown, token = tokenDueno) =>
+    request(prueba.app).post(`/pagos/${pagoId}/anulacion`).set("Authorization", `Bearer ${token}`).send(body as object);
+
+  /** El pago de la membresía de Ana que vence el 30 (la única que cuenta para su estado). */
+  const pagoVigenteDeAna = () => bd.filas.find((m) => m.clienteId === CLIENTE.ana && m.fechaFin === "2026-11-30")!.pagos[0]!;
+  const pagoAnuladoDeLuis = () => bd.filas.find((m) => m.clienteId === CLIENTE.luis && m.fechaInicio === "2026-12-20")!.pagos[0]!;
+  const pagoAjeno = () => bd.filas.find((m) => m.clienteId === CLIENTE.ajeno)!.pagos[0]!;
+
+  it("1 y 12. DUENO anula: 200 con la membresía (pago ANULADO, cuenta=false) y una fila ANULAR_PAGO en la bitácora", async () => {
+    const pago = pagoVigenteDeAna();
+    const res = await anular(pago.id, { motivo: "  Cobro   duplicado " });
+
+    expect(res.status).toBe(200);
+    expect(res.headers["cache-control"]).toBe("no-store");
+    expect(res.body).toMatchObject({ fechaInicio: "2026-11-01", fechaFin: "2026-11-30", cuenta: false });
+    expect(res.body.pagos).toEqual([
+      expect.objectContaining({
+        id: pago.id,
+        estado: "ANULADO",
+        anulacion: { anuladoEn: AHORA.toISOString(), anuladoPor: { id: USUARIOS.dueno.id, nombre: USUARIOS.dueno.nombre }, motivo: "Cobro duplicado" },
+      }),
+    ]);
+    expect(bd.bitacora).toEqual([
+      {
+        gimnasioId: GIMNASIO.id,
+        actorId: USUARIOS.dueno.id,
+        accion: "ANULAR_PAGO",
+        entidad: "pagos",
+        entidadId: pago.id,
+        datosAntes: { estado: "VALIDO" },
+        datosDespues: { estado: "ANULADO", motivo: "Cobro duplicado" },
+      },
+    ]);
+  });
+
+  it("2. ADMIN también puede anular", async () => {
+    expect((await anular(pagoVigenteDeAna().id, { motivo: "Plan equivocado" }, tokenAdmin)).status).toBe(200);
+  });
+
+  it("3. RECEPCION → 403 y el pago no cambia", async () => {
+    const res = await anular(pagoVigenteDeAna().id, { motivo: "Cobro duplicado" }, tokenRecepcion);
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "Forbidden" });
+    expect(pagoVigenteDeAna().estado).toBe("VALIDO");
+    expect(bd.bitacora).toEqual([]);
+  });
+
+  it.each([
+    ["sin motivo", {}, "Es obligatorio"],
+    ["motivo vacío", { motivo: "" }, "Es obligatorio"],
+    ["motivo de solo espacios", { motivo: "   " }, "Es obligatorio"],
+    ["motivo que no es texto", { motivo: 5 }, "Debe ser texto"],
+    ["motivo de 201 caracteres", { motivo: "x".repeat(201) }, "Debe tener como máximo 200 caracteres"],
+  ])("4 y 5. %s → 400 en motivo", async (_caso, body, mensaje) => {
+    const res = await anular(pagoVigenteDeAna().id, body);
+    expect(res.status).toBe(400);
+    expect(res.body.detalles).toEqual([{ campo: "motivo", mensaje }]);
+    expect(pagoVigenteDeAna().estado).toBe("VALIDO");
+  });
+
+  it("6. un campo extra (estado, anuladoPor…) → 400", async () => {
+    const res = await anular(pagoVigenteDeAna().id, { motivo: "Cobro duplicado", anuladoPorId: USUARIOS.recepcion.id });
+    expect(res.status).toBe(400);
+    expect(res.body.detalles).toEqual([{ campo: "anuladoPorId", mensaje: "Campo no permitido" }]);
+  });
+
+  it.each([
+    ["de otro gimnasio", () => pagoAjeno().id],
+    ["que no existe", () => "b0000000-0000-4000-8000-000000000123"],
+    ["que no es UUID", () => "abc"],
+  ])("7. un pago %s → 404", async (_caso, id) => {
+    const res = await anular(id(), { motivo: "Cobro duplicado" });
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Not Found" });
+    expect(pagoAjeno().estado).toBe("VALIDO");
+  });
+
+  it("8. el pago de un cliente bloqueado → 404", async () => {
+    const membresiaDelBloqueado = membresia(CLIENTE.bloqueado, "2026-11-01", "2026-11-30");
+    bd.filas.push(membresiaDelBloqueado);
+    const res = await anular(membresiaDelBloqueado.pagos[0]!.id, { motivo: "Cobro duplicado" });
+    expect(res.status).toBe(404);
+  });
+
+  it("9. un pago ya anulado → 409", async () => {
+    const res = await anular(pagoAnuladoDeLuis().id, { motivo: "Otra vez" });
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "Conflict", mensaje: "El pago ya está anulado" });
+    expect(pagoAnuladoDeLuis().anulacion?.motivo).toBe("Cobro duplicado"); // no se sobrescribe
+  });
+
+  it("10 y 11. después de anular, esa membresía deja de contar: cambia el estado y la fecha sugerida para cobrar", async () => {
+    await anular(pagoVigenteDeAna().id, { motivo: "Cobro duplicado" });
+
+    // Su otra membresía (octubre) ya venció: Ana pasa de POR_VENCER a VENCIDO.
+    const historial = await api.get(CLIENTE.ana);
+    expect(historial.body.estado).toMatchObject({ estado: "VENCIDO", fechaFin: "2026-10-31" });
+
+    // Al cobrar de nuevo, empieza hoy (y no el 1 de diciembre): el periodo anulado quedó libre.
+    const cobroNuevo = await api.post(CLIENTE.ana, cobro());
+    expect(cobroNuevo.status).toBe(201);
+    expect(cobroNuevo.body.fechaInicio).toBe(HOY);
+  });
+
+  it("17. el motivo no va a los logs", async () => {
+    await anular(pagoVigenteDeAna().id, { motivo: "Cobró a Marta 5512345678 por error" });
+    await anular(pagoVigenteDeAna().id, { motivo: "Marta otra vez" }); // 409
+    const logs = JSON.stringify([...prueba.logger.warn.mock.calls, ...prueba.logger.error.mock.calls]);
+    expect(logs).not.toContain("Marta");
+    expect(logs).not.toContain("5512345678");
   });
 });

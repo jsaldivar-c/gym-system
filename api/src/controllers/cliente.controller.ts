@@ -7,13 +7,16 @@ import type { Cliente } from "../repositories/cliente.repository.js";
 import { esquemasCliente, listarClientesSchema } from "../schemas/cliente.schema.js";
 import type { ClienteService } from "../services/cliente.service.js";
 
-/** De las columnas planas a la forma del contrato: el contacto de emergencia va agrupado. */
-export function presentarCliente({
+/**
+ * De las columnas planas a la forma del contrato: el contacto de emergencia va agrupado.
+ * Genérica (`T extends Cliente`): si el cliente trae `estado` (spec 0006), pasa tal cual en `resto`.
+ */
+export function presentarCliente<T extends Cliente>({
   contactoEmergenciaNombre: nombre,
   contactoEmergenciaTelefono: telefono,
   contactoEmergenciaParentesco: parentesco,
   ...resto
-}: Cliente) {
+}: T) {
   const sinContacto = nombre === null && telefono === null && parentesco === null;
   return { ...resto, contactoEmergencia: sinContacto ? null : { nombre, telefono, parentesco } };
 }

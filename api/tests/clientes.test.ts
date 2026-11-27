@@ -2,7 +2,8 @@
 import request from "supertest";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ClienteRepository } from "../src/repositories/cliente.repository.js";
-import { crearClienteRepositoryFalso, type FilaCliente } from "./fakes/cliente-repository.fake.js";
+import type { EstadoCliente } from "../src/repositories/membresia.repository.js";
+import { crearClienteRepositoryFalso, type FilaCliente, SIN_MEMBRESIA } from "./fakes/cliente-repository.fake.js";
 import { crearAppDePrueba, crearClaves, firmarToken, GIMNASIO, OTRO_GIMNASIO, USUARIOS } from "./helpers.js";
 
 const ID = {
@@ -153,6 +154,7 @@ describe("GET /clientes/:id", () => {
       fechaInscripcion: "2026-01-10",
       contactoEmergencia: { nombre: "Luis López", telefono: "5587654321", parentesco: "Hermano" },
       notas: null,
+      estado: SIN_MEMBRESIA, // spec 0006
     });
     const sinContacto = await api.get(`/clientes/${ID.luis}`);
     expect(sinContacto.body).toMatchObject({ email: null, fechaNacimiento: null, contactoEmergencia: null, notas: null });
@@ -432,5 +434,79 @@ describe("31. Los datos personales no van a los logs", () => {
     expect(llamadasDelLogger()).toContain("PrismaClientValidationError");
     expect(llamadasDelLogger()).not.toContain("4421234567");
     expect(llamadasDelLogger()).not.toContain("Marta");
+  });
+});
+
+// ─── Spec 0006: el semáforo en la lista y en la ficha ─────────────────────────
+describe("Spec 0006: estado en /clientes", () => {
+  const POR_VENCER: EstadoCliente = { estado: "POR_VENCER", diasRestantes: 3, fechaFin: "2026-11-29", membresiaId: "m0000000-0000-4000-8000-000000000001" };
+  const VENCIDO: EstadoCliente = { estado: "VENCIDO", diasRestantes: -5, fechaFin: "2026-11-21", membresiaId: "m0000000-0000-4000-8000-000000000002" };
+  const ACTIVO: EstadoCliente = { estado: "ACTIVO", diasRestantes: 20, fechaFin: "2026-12-16", membresiaId: "m0000000-0000-4000-8000-000000000003" };
+
+  // Ana López: por vencer · Luis López: vencido · Ana Ruiz: sin membresía · Carla (otro gimnasio): vencida
+  beforeEach(() => {
+    bd = crearClienteRepositoryFalso(clientesIniciales(), { [ID.ana]: POR_VENCER, [ID.luis]: VENCIDO, [ID.ajeno]: VENCIDO });
+    prueba = crearAppDePrueba({ keys: claves.jwks, clienteRepository: bd.repo, ahora: () => AHORA });
+  });
+
+  const estados = (res: request.Response) => (res.body.data as { estado: EstadoCliente }[]).map((c) => c.estado.estado);
+
+  it("1 y 2. cada cliente de la lista trae su estado; sin membresías → SIN_MEMBRESIA con nulls", async () => {
+    const res = await api.get("/clientes");
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((c: { id: string; estado: EstadoCliente }) => [c.id, c.estado])).toEqual([
+      [ID.ana, POR_VENCER],
+      [ID.luis, VENCIDO],
+      [ID.anaRuiz, SIN_MEMBRESIA],
+    ]);
+  });
+
+  it("3. ?estado=VENCIDO → solo los vencidos de MI gimnasio, y el total cuenta solo esos", async () => {
+    const res = await api.get("/clientes?estado=VENCIDO");
+    expect(nombres(res)).toEqual(["Luis López Pérez"]);
+    expect(res.body.meta.total).toBe(1);
+    expect(bd.llamadas.listar.at(-1)?.estado).toBe("VENCIDO");
+  });
+
+  it("4. ?estado + ?buscar: se cumplen las dos condiciones", async () => {
+    expect(nombres(await api.get(`/clientes?estado=POR_VENCER&buscar=${encodeURIComponent("lóp")}`))).toEqual(["Ana López García"]);
+    expect(nombres(await api.get(`/clientes?estado=SIN_MEMBRESIA&buscar=${encodeURIComponent("lóp")}`))).toEqual([]);
+  });
+
+  it("5. pagina sobre lo filtrado", async () => {
+    bd = crearClienteRepositoryFalso(clientesIniciales(), { [ID.ana]: ACTIVO, [ID.luis]: ACTIVO, [ID.anaRuiz]: ACTIVO });
+    prueba = crearAppDePrueba({ keys: claves.jwks, clienteRepository: bd.repo, ahora: () => AHORA });
+    const res = await api.get("/clientes?estado=ACTIVO&pagina=2&porPagina=1");
+    expect(nombres(res)).toEqual(["Luis López Pérez"]);
+    expect(res.body.meta).toEqual({ pagina: 2, porPagina: 1, total: 3 });
+    expect(estados(res)).toEqual(["ACTIVO"]);
+  });
+
+  it.each(["vencido", "OTRO", "ACTIVO,VENCIDO"])("6. ?estado=%s → 400 en estado", async (valor) => {
+    const res = await api.get(`/clientes?estado=${valor}`);
+    expect(res.status).toBe(400);
+    expect(res.body.detalles).toEqual([{ campo: "estado", mensaje: "Debe ser ACTIVO, POR_VENCER, VENCIDO o SIN_MEMBRESIA" }]);
+  });
+
+  it("7. ?estado= vacío → sin filtro", async () => {
+    const res = await api.get("/clientes?estado=");
+    expect(res.status).toBe(200);
+    expect(res.body.meta.total).toBe(3);
+    expect(bd.llamadas.listar.at(-1)?.estado).toBeUndefined();
+  });
+
+  it("8. la ficha (GET /clientes/:id) trae su estado", async () => {
+    const res = await api.get(`/clientes/${ID.luis}`);
+    expect(res.status).toBe(200);
+    expect(res.body.estado).toEqual(VENCIDO);
+  });
+
+  it("9. POST y PATCH responden SIN estado (no consultan la vista)", async () => {
+    const creado = await api.post(minimo);
+    expect(creado.status).toBe(201);
+    expect(creado.body).not.toHaveProperty("estado");
+    const editado = await api.patch(ID.ana, { notas: "Prefiere turno matutino" });
+    expect(editado.status).toBe(200);
+    expect(editado.body).not.toHaveProperty("estado");
   });
 });

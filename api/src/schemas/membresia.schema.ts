@@ -23,3 +23,7 @@ export function esquemaContratar(hoy: string) {
 }
 
 export type ContratarInput = z.infer<ReturnType<typeof esquemaContratar>>;
+
+/** Body de POST /pagos/:id/anulacion (spec 0007). strictObject: ni quién anula ni el estado vienen del cliente. */
+export const esquemaAnular = z.strictObject({ motivo: texto(200) });
+export type AnularInput = z.infer<typeof esquemaAnular>;

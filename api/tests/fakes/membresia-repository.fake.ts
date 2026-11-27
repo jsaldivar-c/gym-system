@@ -12,9 +12,10 @@ export interface FilaMembresia extends Membresia {
 export interface RegistroBitacora {
   gimnasioId: string;
   actorId: string;
-  accion: "CREAR";
+  accion: "CREAR" | "ANULAR_PAGO";
   entidad: "membresias" | "pagos";
   entidadId: string;
+  datosAntes?: Record<string, unknown>;
   datosDespues: Record<string, unknown>;
 }
 
@@ -68,6 +69,7 @@ export function crearMembresiaRepositoryFalso({
         estado: "VALIDO",
         fechaPago: ahora().toISOString(),
         registradoPor: { id: actorId, nombre: nombre(staff, actorId) },
+        anulacion: null,
       };
       const fila: FilaMembresia = {
         id: randomUUID(),
@@ -101,6 +103,27 @@ export function crearMembresiaRepositoryFalso({
         },
       );
       return aMembresia(fila);
+    },
+
+    async anularPago(gimnasioId, pagoId, actorId, motivo) {
+      // Igual que el real: solo pagos de ESE gimnasio cuyo cliente está activo.
+      const fila = filas.find((m) => m.gimnasioId === gimnasioId && activo(gimnasioId, m.clienteId) && m.pagos.some((p) => p.id === pagoId));
+      const pago = fila?.pagos.find((p) => p.id === pagoId);
+      if (!fila || !pago) return { tipo: "no-existe" };
+      if (pago.estado === "ANULADO") return { tipo: "ya-anulado" };
+
+      pago.estado = "ANULADO";
+      pago.anulacion = { anuladoEn: ahora().toISOString(), anuladoPor: { id: actorId, nombre: nombre(staff, actorId) }, motivo };
+      bitacora.push({
+        gimnasioId,
+        actorId,
+        accion: "ANULAR_PAGO",
+        entidad: "pagos",
+        entidadId: pagoId,
+        datosAntes: { estado: "VALIDO" },
+        datosDespues: { estado: "ANULADO", motivo },
+      });
+      return { tipo: "anulado", membresia: aMembresia(fila) };
     },
 
     async historial(gimnasioId, clienteId) {

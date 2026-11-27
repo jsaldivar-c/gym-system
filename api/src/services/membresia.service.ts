@@ -6,7 +6,7 @@ import { esUuid } from "../lib/validation.js";
 import type { ClienteRepository } from "../repositories/cliente.repository.js";
 import type { EstadoCliente, Membresia, MembresiaRepository, Periodo } from "../repositories/membresia.repository.js";
 import type { PlanRepository } from "../repositories/plan.repository.js";
-import type { ContratarInput } from "../schemas/membresia.schema.js";
+import type { AnularInput, ContratarInput } from "../schemas/membresia.schema.js";
 
 export interface HistorialDeCliente {
   estado: EstadoCliente;
@@ -17,6 +17,8 @@ export interface MembresiaService {
   historial(auth: AuthContext, clienteId: string): Promise<HistorialDeCliente>;
   /** `hoy` es la fecha en la zona del gimnasio: la calcula quien conoce el reloj (el controlador). */
   contratar(auth: AuthContext, clienteId: string, datos: ContratarInput, hoy: string): Promise<Membresia>;
+  /** Spec 0007. El permiso (ADMIN y DUENO) lo revisa la ruta con requireRole. Devuelve la membresía del pago. */
+  anularPago(auth: AuthContext, pagoId: string, datos: AnularInput): Promise<Membresia>;
 }
 
 /**
@@ -74,6 +76,15 @@ export function createMembresiaService(repos: {
       }));
       if (!membresia) throw new NotFoundError("Cliente"); // lo bloquearon entre la lectura y el cobro
       return membresia;
+    },
+
+    async anularPago(auth, pagoId, { motivo }) {
+      // Un id que no es UUID no puede existir: 404 sin consultar la BD.
+      if (!esUuid(pagoId)) throw new NotFoundError("Pago");
+      const resultado = await membresias.anularPago(auth.gimnasioId, pagoId, auth.userId, motivo);
+      if (resultado.tipo === "no-existe") throw new NotFoundError("Pago");
+      if (resultado.tipo === "ya-anulado") throw new ConflictError("El pago ya está anulado");
+      return resultado.membresia;
     },
   };
 }

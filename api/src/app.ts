@@ -14,11 +14,13 @@ import { createMembresiaRouter } from "./routes/membresia.routes.js";
 import { createMeRouter } from "./routes/me.routes.js";
 import { createPagoRouter } from "./routes/pago.routes.js";
 import { createPlanRouter } from "./routes/plan.routes.js";
+import { createReporteRouter } from "./routes/reporte.routes.js";
 import type { AuthService } from "./services/auth.service.js";
 import type { ClienteService } from "./services/cliente.service.js";
 import type { HealthService } from "./services/health.service.js";
 import type { MembresiaService } from "./services/membresia.service.js";
 import type { PlanService } from "./services/plan.service.js";
+import type { ReporteService } from "./services/reporte.service.js";
 
 export interface AppDeps {
   healthService: HealthService;
@@ -26,6 +28,7 @@ export interface AppDeps {
   planService: PlanService;
   clienteService: ClienteService;
   membresiaService: MembresiaService;
+  reporteService: ReporteService;
   webOrigin: string;
   logger?: Pick<Console, "warn" | "error">;
   /** Reloj: los tests lo fijan para controlar qué día es "hoy". */
@@ -38,6 +41,7 @@ export function createApp({
   planService,
   clienteService,
   membresiaService,
+  reporteService,
   webOrigin,
   logger = console,
   ahora,
@@ -70,6 +74,7 @@ export function createApp({
   app.use("/clientes/:clienteId/membresias", createMembresiaRouter(membresiaService, requireAuth, ahora));
   app.use("/clientes", createClienteRouter(clienteService, requireAuth, ahora));
   app.use("/pagos", createPagoRouter(membresiaService, requireAuth));
+  app.use("/reportes", createReporteRouter(reporteService, requireAuth, ahora));
 
   // ─── Al final: 404 y errores ───
   app.use(notFound);

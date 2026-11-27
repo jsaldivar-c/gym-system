@@ -26,3 +26,4 @@ Una **spec** describe **qué** debe hacer una función antes de programarla: el 
 | 0005 | [Membresías y cobro](0005-api-membresias.md) | Implementada |
 | 0006 | [Estado en la lista de clientes](0006-api-estado-clientes.md) | Implementada |
 | 0007 | [Anulación de pagos](0007-api-anular-pagos.md) | Implementada |
+| 0008 | [Reporte de ingresos](0008-api-reporte-ingresos.md) | Implementada |

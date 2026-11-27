@@ -59,3 +59,8 @@ export function calcularFechaFin(inicio: string, meses: number): string {
   const siguiente = d <= diasDelMes ? Date.UTC(y, destino, d) : Date.UTC(y, destino + 1, 1);
   return deDate(new Date(siguiente - UN_DIA_MS));
 }
+
+/** Días de `desde` a `hasta` ("2026-11-01" → "2026-11-03" = 2). Negativo si `hasta` es anterior. */
+export function diasEntre(desde: string, hasta: string): number {
+  return Math.round((aDate(hasta).getTime() - aDate(desde).getTime()) / UN_DIA_MS);
+}

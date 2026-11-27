@@ -13,10 +13,13 @@ import { createAuthService } from "../src/services/auth.service.js";
 import { createClienteService } from "../src/services/cliente.service.js";
 import { createHealthService } from "../src/services/health.service.js";
 import { createMembresiaService } from "../src/services/membresia.service.js";
+import type { ReporteRepository } from "../src/repositories/reporte.repository.js";
 import { createPlanService } from "../src/services/plan.service.js";
+import { createReporteService } from "../src/services/reporte.service.js";
 import { crearClienteRepositoryFalso } from "./fakes/cliente-repository.fake.js";
 import { crearMembresiaRepositoryFalso } from "./fakes/membresia-repository.fake.js";
 import { crearPlanRepositoryFalso } from "./fakes/plan-repository.fake.js";
+import { crearReporteRepositoryFalso } from "./fakes/reporte-repository.fake.js";
 
 export const ISSUER = "https://proyecto-de-prueba.supabase.co/auth/v1";
 
@@ -74,6 +77,7 @@ export function crearAppDePrueba({
   planRepository = crearPlanRepositoryFalso().repo,
   clienteRepository = crearClienteRepositoryFalso().repo,
   membresiaRepository = crearMembresiaRepositoryFalso().repo,
+  reporteRepository = crearReporteRepositoryFalso().repo,
   ahora,
 }: {
   keys: JWTVerifyGetKey;
@@ -82,6 +86,7 @@ export function crearAppDePrueba({
   planRepository?: PlanRepository;
   clienteRepository?: ClienteRepository;
   membresiaRepository?: MembresiaRepository;
+  reporteRepository?: ReporteRepository;
   ahora?: () => Date;
 }) {
   const logger = { warn: vi.fn(), error: vi.fn() };
@@ -95,6 +100,7 @@ export function crearAppDePrueba({
     planService: createPlanService(planRepository),
     clienteService: createClienteService(clienteRepository),
     membresiaService: createMembresiaService({ membresias: membresiaRepository, planes: planRepository, clientes: clienteRepository }),
+    reporteService: createReporteService(reporteRepository),
     webOrigin: "http://localhost:5173",
     logger,
     ahora,

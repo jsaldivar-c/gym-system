@@ -165,6 +165,7 @@ describe("contratar", () => {
           estado: "VALIDO",
           fechaPago: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
           registradoPor: { id: actor.id, nombre: "Ana López" },
+          anulacion: null, // spec 0007
         },
       ],
     });

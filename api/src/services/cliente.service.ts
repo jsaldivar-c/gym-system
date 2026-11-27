@@ -1,13 +1,13 @@
-// Servicio de clientes: reglas de negocio de la spec 0004. No sabe nada de Express ni de Prisma.
+// Servicio de clientes: reglas de negocio de las specs 0004 y 0006. No sabe nada de Express ni de Prisma.
 import type { AuthContext } from "../auth/roles.js";
 import { ConflictError, NotFoundError } from "../errors.js";
 import { pareceTelefono } from "../lib/telefono.js";
 import { esUuid } from "../lib/validation.js";
-import type { Busqueda, CamposCliente, Cliente, ClienteRepository } from "../repositories/cliente.repository.js";
+import type { Busqueda, CamposCliente, Cliente, ClienteConEstado, ClienteRepository } from "../repositories/cliente.repository.js";
 import type { ActualizarClienteInput, CrearClienteInput, ListarClientesQuery } from "../schemas/cliente.schema.js";
 
 export interface PaginaDeClientes {
-  clientes: Cliente[];
+  clientes: ClienteConEstado[];
   pagina: number;
   porPagina: number;
   total: number;
@@ -15,7 +15,8 @@ export interface PaginaDeClientes {
 
 export interface ClienteService {
   listar(auth: AuthContext, query: ListarClientesQuery): Promise<PaginaDeClientes>;
-  obtener(auth: AuthContext, id: string): Promise<Cliente>;
+  /** La ficha: el cliente con su estado (spec 0006). */
+  obtener(auth: AuthContext, id: string): Promise<ClienteConEstado>;
   crear(auth: AuthContext, datos: CrearClienteInput): Promise<Cliente>;
   actualizar(auth: AuthContext, id: string, datos: ActualizarClienteInput): Promise<Cliente>;
 }
@@ -45,7 +46,8 @@ function aCampos(datos: ActualizarClienteInput): Partial<CamposCliente> {
 }
 
 export function createClienteService(repo: ClienteRepository): ClienteService {
-  async function obtener(auth: AuthContext, id: string): Promise<Cliente> {
+  /** Para editar: el cliente sin estado (no hace falta consultar la vista). */
+  async function buscar(auth: AuthContext, id: string): Promise<Cliente> {
     // Un id que no es UUID no puede existir: 404 sin consultar la BD.
     const cliente = esUuid(id) ? await repo.buscarPorId(auth.gimnasioId, id) : null;
     if (!cliente) throw new NotFoundError("Cliente");
@@ -53,12 +55,16 @@ export function createClienteService(repo: ClienteRepository): ClienteService {
   }
 
   return {
-    async listar(auth, { buscar, pagina, porPagina }) {
-      const { clientes, total } = await repo.listar(auth.gimnasioId, { busqueda: interpretarBusqueda(buscar), pagina, porPagina });
+    async listar(auth, { buscar, estado, pagina, porPagina }) {
+      const { clientes, total } = await repo.listar(auth.gimnasioId, { busqueda: interpretarBusqueda(buscar), estado, pagina, porPagina });
       return { clientes, pagina, porPagina, total };
     },
 
-    obtener,
+    async obtener(auth, id) {
+      const cliente = esUuid(id) ? await repo.buscarConEstado(auth.gimnasioId, id) : null;
+      if (!cliente) throw new NotFoundError("Cliente");
+      return cliente;
+    },
 
     async crear(auth, datos) {
       // Todos los campos, con null en los opcionales que no vinieron.
@@ -81,7 +87,7 @@ export function createClienteService(repo: ClienteRepository): ClienteService {
     },
 
     async actualizar(auth, id, datos) {
-      const actual = await obtener(auth, id);
+      const actual = await buscar(auth, id);
 
       // Solo los campos que de verdad cambian (ya normalizados): eso se guarda en la bitácora.
       const cambios = aCampos(datos);

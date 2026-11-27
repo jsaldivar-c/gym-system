@@ -3,7 +3,11 @@
 import { z } from "zod";
 import { restarAnios } from "../lib/fechas.js";
 import { normalizarTelefono } from "../lib/telefono.js";
+import type { Estado } from "../repositories/membresia.repository.js";
 import { fecha, opcional, texto, tipo } from "./comunes.js";
+
+/** Los valores del semáforo (los mismos que calcula la vista v_estado_clientes). */
+export const ESTADOS_CLIENTE = ["ACTIVO", "POR_VENCER", "VENCIDO", "SIN_MEMBRESIA"] as const satisfies readonly Estado[];
 
 const telefono = z
   .string({ error: tipo("Debe ser texto") })
@@ -77,6 +81,9 @@ export const listarClientesSchema = z.object({
     .max(100, "Debe tener como máximo 100 caracteres")
     .optional()
     .transform((v) => v || undefined), // "?buscar=" = sin búsqueda
+  // Spec 0006: filtrar por el semáforo. "?estado=" vacío = sin filtro.
+  estado: z
+    .preprocess((v) => (v === "" ? undefined : v), z.enum(ESTADOS_CLIENTE, { error: "Debe ser ACTIVO, POR_VENCER, VENCIDO o SIN_MEMBRESIA" }).optional()),
   pagina: z.coerce
     .number({ error: "Debe ser un número entero mayor o igual a 1" })
     .int("Debe ser un número entero mayor o igual a 1")

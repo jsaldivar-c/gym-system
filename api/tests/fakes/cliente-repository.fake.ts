@@ -3,7 +3,8 @@
 // Las consultas reales de Prisma se prueban en tests/integration/cliente.repository.test.ts.
 import { randomUUID } from "node:crypto";
 import { ConflictError } from "../../src/errors.js";
-import type { Auditoria, Busqueda, CamposCliente, Cliente, ClienteRepository } from "../../src/repositories/cliente.repository.js";
+import type { Auditoria, Busqueda, CamposCliente, Cliente, ClienteConEstado, ClienteRepository } from "../../src/repositories/cliente.repository.js";
+import type { Estado, EstadoCliente } from "../../src/repositories/membresia.repository.js";
 
 export interface FilaCliente extends Cliente {
   gimnasioId: string;
@@ -20,12 +21,20 @@ export interface RegistroBitacora {
   datosDespues: Partial<CamposCliente>;
 }
 
-export function crearClienteRepositoryFalso(inicial: FilaCliente[] = []) {
+export const SIN_MEMBRESIA: EstadoCliente = { estado: "SIN_MEMBRESIA", diasRestantes: null, fechaFin: null, membresiaId: null };
+
+/**
+ * `estados`: el semáforo de cada cliente por id, como si viniera de la vista (spec 0006).
+ * El que no aparezca queda SIN_MEMBRESIA. La regla real de la vista se prueba en integración.
+ */
+export function crearClienteRepositoryFalso(inicial: FilaCliente[] = [], estados: Record<string, EstadoCliente> = {}) {
   const filas: FilaCliente[] = inicial.map((f) => ({ ...f }));
   const bitacora: RegistroBitacora[] = [];
-  const llamadas: { listar: { busqueda?: Busqueda; pagina: number; porPagina: number }[] } = { listar: [] };
+  const llamadas: { listar: { busqueda?: Busqueda; estado?: Estado; pagina: number; porPagina: number }[] } = { listar: [] };
 
   const aCliente = ({ gimnasioId: _g, estadoRegistro: _e, ...cliente }: FilaCliente): Cliente => cliente;
+  const estadoDe = (id: string) => estados[id] ?? SIN_MEMBRESIA;
+  const conEstado = (f: FilaCliente): ClienteConEstado => ({ ...aCliente(f), estado: estadoDe(f.id) });
   const visibles = (gimnasioId: string) => filas.filter((f) => f.gimnasioId === gimnasioId && f.estadoRegistro === "ACTIVO");
   const contiene = (texto: string, parte: string) => texto.toLowerCase().includes(parte.toLowerCase());
 
@@ -45,17 +54,23 @@ export function crearClienteRepositoryFalso(inicial: FilaCliente[] = []) {
   const repo: ClienteRepository = {
     async listar(gimnasioId, opciones) {
       llamadas.listar.push(opciones);
-      const { busqueda, pagina, porPagina } = opciones;
+      const { busqueda, estado, pagina, porPagina } = opciones;
       const todos = visibles(gimnasioId)
         .filter((f) => coincide(f, busqueda))
+        .filter((f) => !estado || estadoDe(f.id).estado === estado)
         .sort((a, b) => a.apellidos.localeCompare(b.apellidos) || a.nombres.localeCompare(b.nombres) || a.id.localeCompare(b.id));
       const inicio = (pagina - 1) * porPagina;
-      return { clientes: todos.slice(inicio, inicio + porPagina).map(aCliente), total: todos.length };
+      return { clientes: todos.slice(inicio, inicio + porPagina).map(conEstado), total: todos.length };
     },
 
     async buscarPorId(gimnasioId, id) {
       const fila = visibles(gimnasioId).find((f) => f.id === id);
       return fila ? aCliente(fila) : null;
+    },
+
+    async buscarConEstado(gimnasioId, id) {
+      const fila = visibles(gimnasioId).find((f) => f.id === id);
+      return fila ? conEstado(fila) : null;
     },
 
     async buscarIdPorTelefono(gimnasioId, telefono, excluirId) {

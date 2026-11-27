@@ -261,7 +261,7 @@ describe("spec 0006: listar y buscarConEstado con el estado de la vista", () => 
 
   /** Una membresía con su pago VALIDO, insertada con Prisma directo. */
   async function membresia(gimnasioId: string, clienteId: string, fechaFin: string) {
-    const { id: planId } = await prisma.plan.create({ data: { gimnasioId, nombre: "Mensual", precio: "500.00", duracionMeses: 1 } });
+    const { id: planId } = await prisma.plan.create({ data: { gimnasioId, nombre: `Mensual ${randomUUID().slice(0, 8)}`, precio: "500.00", duracionMeses: 1 } }); // el nombre es único por gimnasio
     const { id } = await prisma.membresia.create({
       data: { gimnasioId, clienteId, planId, fechaInicio: aDate(dias(-60)), fechaFin: aDate(fechaFin), precioAcordado: "500.00", creadaPorId: actorId },
     });
